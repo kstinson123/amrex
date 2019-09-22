@@ -1,0 +1,39 @@
+
+This tutorial presents an example of using an iterative fixed point method to solve a time independent elliptic equation.
+
+The diffusion operator is a 4th order discretization of a diffusion term in divergence form with variable beta: grad(beta*grad u). The implicit diffusion solve is done using an under relaxed smoother. See the routines in
+functions_2d.f90 for the code that evaluates the rhs terms.
+
+The simple form of the equation allows for an exact solution of the
+PDE in the domain. There is a flag called "plot_err" in
+main.cpp, which if set equal 1 will cause the code to output the error
+in the solution for plotting.
+
+Furthermore the code is designed to run multiple problem types:
+Nprob = 1 (non-homogeneous Dirichlet)
+Nprob = 2 (homogeneous Dirichlet)
+
+
+The source code is located in the  directory Source.  To compile the example, cd to Exec and enter
+
+>make
+
+To run the example in Exec
+
+> ./main2d.gnu.ed inputs_2d Nprob=(your choice of problem)
+
+After completion, one can use amrvis to view the solution or errors.
+
+
+Files:  
+
+main.cpp:  Main routine.  
+
+SDC_sweeper.cpp:  Executes the MISDC time step
+
+init_phi_2d.f90:  Fortran routines to initialize the solution and compute error
+
+functions_2d.f90:  Evaluation of rhs terms and implicit diffusion solve
+
+
+This example uses the SDCstruct  class (see amrex/Src/SDC/)
