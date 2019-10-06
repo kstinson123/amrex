@@ -25,4 +25,10 @@ bc_lo = 3 3
 bc_hi = 3 3
 
 # Decide which problem to run
-Nprob=1
+Nprob=1 #inhomog
+# Nprob=2 #homog
+
+# Relaxation in smoother
+relaxation_parameter = 1.0 
+# 1.0 is good for Nprob=2
+# 1.5 good for Nprob=1

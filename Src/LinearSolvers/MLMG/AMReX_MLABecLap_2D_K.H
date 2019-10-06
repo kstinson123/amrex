@@ -209,7 +209,7 @@ void abec_gsrb (Box const& box, Array4<Real> const& phi,
     }
 }
 
-#if 0
+#if 1
   // GSRB
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
@@ -221,7 +221,7 @@ void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
                 Array4<int const> const& m1,
                 Array4<int const> const& m2,
                 Array4<int const> const& m3,
-                Box const& vbox, int nc, Array4<Real const> const& phi_tmp) noexcept
+                Box const& vbox, int nc, Array4<Real const> const& phi_tmp, Real relaxation_parameter) noexcept
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -359,7 +359,7 @@ void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
                                              - bY(i,j+1,0,n)*phi(i,j+2,0,n) );
                 // Correct sign on delta?
                 phi(i,j,0,n) = (rhs(i,j,0,n) + rho - delta*phi(i,j,0,n) )
-                    / ((gamma - delta) * 1.5);
+                    / ((gamma - delta) * relaxation_parameter);
                 
             /*    if (i == 48 && j == 32 ){
                     amrex::Print() << "phi is " << bY(i,j,0,n) << " " << phi(i,j-2,0,n)
@@ -386,7 +386,7 @@ void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
                 Array4<int const> const& m1,
                 Array4<int const> const& m2,
                 Array4<int const> const& m3,
-                Box const& vbox, int nc, Array4<Real const> const& phi_tmp) noexcept
+                Box const& vbox, int nc, Array4<Real const> const& phi_tmp, Real relaxation_parameter) noexcept
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -524,7 +524,7 @@ void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
                                              - bY(i,j+1,0,n)*phi_tmp(i,j+2,0,n) );
                 // Correct sign on delta?
                 phi(i,j,0,n) = (rhs(i,j,0,n) + rho - delta*phi_tmp(i,j,0,n) )
-                    / ((gamma - delta) * 1.5);
+                    / ((gamma - delta) * relaxation_parameter);
                 
             /*    if (i == 48 && j == 32 ){
                     amrex::Print() << "phi is " << bY(i,j,0,n) << " " << phi(i,j-2,0,n)

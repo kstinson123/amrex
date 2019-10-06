@@ -1,5 +1,5 @@
 
-This tutorial presents an example of using an iterative fixed point method to solve a time independent elliptic equation.
+This tutorial presents an example of using an iterative method to solve a time independent elliptic equation.
 
 The diffusion operator is a 4th order discretization of a diffusion term in divergence form with variable beta: grad(beta*grad u). The implicit diffusion solve is done using an under relaxed smoother. See the routines in
 functions_2d.f90 for the code that evaluates the rhs terms.

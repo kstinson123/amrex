@@ -1,7 +1,7 @@
 
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MultiFabUtil.H>
-
+#include <AMReX_ParmParse.H>
 #include <AMReX_MLABecLap_K.H>
 #include <AMReX_MLABecLap_CCtoFace_F.H>
 
@@ -29,6 +29,10 @@ MLABecLaplacian::define (const Vector<Geometry>& a_geom,
     MLCellABecLap::define(a_geom, a_grids, a_dmap, a_info, a_factory);
 
     const int ncomp = getNComp();
+    
+    ParmParse pp;
+    m_relaxation_parameter = 1.0;
+    pp.query("relaxation_parameter",m_relaxation_parameter);
 
     m_a_coeffs.resize(m_num_amr_levels);
     m_b_coeffs.resize(m_num_amr_levels);
@@ -556,7 +560,7 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
                  abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
                            afab, bxfab, byfab,
                            m0, m1, m2, m3,
-                           vbx, nc, phi_tmpfab);
+                           vbx, nc, phi_tmpfab, m_relaxation_parameter);
              });
 #endif
             
