@@ -25,7 +25,7 @@ void main_main ()
     Real r;  // reaction coef. 
     Real test_norm;
     // AMREX_SPACEDIM: number of dimensions
-    int n_cell, max_grid_size, Nsteps, plot_int;
+    int n_cell, max_grid_size, Nsteps, plot_int, Nprob;
     Vector<int> bc_lo(AMREX_SPACEDIM,0);
     Vector<int> bc_hi(AMREX_SPACEDIM,0);
 
@@ -64,12 +64,25 @@ void main_main ()
     pp.query("a",a);
     pp.query("d",d);
     pp.query("r",r);
+    pp.query("Nprob",Nprob);
     
     // Manufactured solution parameters
     Real k_freq =3.14159265358979323846;
     Real epsilon = 0.25;//0.25;//0.25;
     Real kappa = 2.0*d*pow(k_freq,2.0); // This choice leads to cancellation analytically. Doesn't matter now.
     
+    
+    // Set BC based on Nprob:
+    for (int idim=0; idim < AMREX_SPACEDIM; ++idim) {
+        if (Nprob<3) {
+            bc_lo[idim] = 3;
+            bc_hi[idim] = 3;
+        }
+        else if (Nprob==3) {
+            bc_lo[idim] = 0;
+            bc_hi[idim] = 0;
+        }
+    }
     
     // determine whether boundary conditions are periodic
     Vector<int> is_periodic(AMREX_SPACEDIM,0);
@@ -84,7 +97,9 @@ void main_main ()
     // Check that we have external dirichlet conditions in place.
     for (int idim=0; idim < AMREX_SPACEDIM; ++idim) {
         if (!(bc_lo[idim] == EXT_DIR && bc_hi[idim] == EXT_DIR)) {
-            amrex::Abort("Not Dirichlet BC");
+            if (!(bc_lo[idim] == INT_DIR && bc_hi[idim] == INT_DIR)) {
+                amrex::Abort("Not Dirichlet BC or periodic");
+            }
         }
     }
     
@@ -134,7 +149,7 @@ void main_main ()
         const Box& bx = mfi.growntilebox();
         init_phi(BL_TO_FORTRAN_BOX(bx),
                  BL_TO_FORTRAN_ANYD(phi_new[mfi]),
-                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(), &k_freq);
+                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(), &k_freq, &Nprob);
     }
     amrex::Print() << "intial norm " << phi_new.norm0() << "\n";
     // Set up BCRec; see Src/Base/AMReX_BC_TYPES.H for supported types
@@ -147,6 +162,9 @@ void main_main ()
 	    if (bc_lo[idim] == EXT_DIR) {
 	      bc[n].setLo(idim, BCType::ext_dir);  // Dirichlet uses "external Dirichlet"
 	    }
+        else if (bc_lo[idim] == INT_DIR) {
+            bc[n].setLo(idim, BCType::int_dir); // Periodic uses "internal Dirichlet"
+        }
 	    else {
 	      amrex::Abort("Invalid bc_lo");
 	    }
@@ -154,7 +172,10 @@ void main_main ()
 	    // hi-side BCs
 	    if (bc_hi[idim] == EXT_DIR) {
 	      bc[n].setHi(idim, BCType::ext_dir);  // Dirichlet uses "external Dirichlet"
-	    }
+        }
+        else if (bc_hi[idim] == INT_DIR) {
+            bc[n].setHi(idim, BCType::int_dir);  // Periodic uses "internal Dirichlet"
+        }
 	    else {
 	      amrex::Abort("Invalid bc_hi");
 	    }
@@ -200,7 +221,7 @@ void main_main ()
 		const Box& bx = mfi.validbox();
 		err_phi(BL_TO_FORTRAN_BOX(bx),
 			BL_TO_FORTRAN_ANYD(phi_new[mfi]),
-			geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa);
+			geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa, &Nprob);
 	      }
 	  }
 	amrex::Print() << "max error in phi " << phi_new.norm0() << "\n";
@@ -208,7 +229,7 @@ void main_main ()
 	const std::string& pltfile = amrex::Concatenate("plt",n,5);
 	WriteSingleLevelPlotfile(pltfile, phi_new, {"phi"}, geom, time, 0);
 	if (plot_err == 1)  // Put the solution back
-	  MultiFab::Copy(phi_new, phi_old, 0, 0, 1, 0);	
+	  MultiFab::Copy(phi_new, phi_old, 0, 0, 1, 2);	
       }
 
   // Set an assorment of solver and parallization options and parameters
@@ -236,6 +257,9 @@ void main_main ()
 	  if (bc[n].lo(idim) == BCType::ext_dir) {
 	    mgbc_lo[idim] = LinOpBCType::Dirichlet;
 	  }
+      else if (bc[n].lo(idim) == BCType::int_dir) {
+          mgbc_lo[idim] = LinOpBCType::Periodic;
+      }
 	  else {
 	    amrex::Abort("Invalid bc_lo");
 	  }
@@ -244,6 +268,9 @@ void main_main ()
 	  if (bc[n].hi(idim) == BCType::ext_dir) {
 	    mgbc_hi[idim] = LinOpBCType::Dirichlet;
 	  }
+      else if (bc[n].hi(idim) == BCType::int_dir) {
+          mgbc_hi[idim] = LinOpBCType::Periodic;
+      }
 	  else {
 	    amrex::Abort("Invalid bc_hi");
 	  }
@@ -289,7 +316,7 @@ void main_main ()
         const Box& bx = mfi.growntilebox();
         init_beta(BL_TO_FORTRAN_BOX(bx),
                  BL_TO_FORTRAN_ANYD(BccCoef[mfi]),
-                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&epsilon, &k_freq);
+                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&epsilon, &k_freq, &Nprob);
     }
     BccCoef.FillBoundary();
 
@@ -314,7 +341,7 @@ void main_main ()
                        &idim );
         }
 
-        face_bcoef[idim].FillBoundary();
+        face_bcoef[idim].FillBoundary(geom.periodicity()); // Shouldn't need this?
     }
 
 mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
@@ -327,7 +354,7 @@ mlabec_BCfill.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
     {          const Box& bx = mfi.validbox();
         fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
                          BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa);
+                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa,&Nprob);
     }
 /*    for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
     {          const Box& bx = mfi.validbox();
@@ -335,8 +362,11 @@ mlabec_BCfill.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
     }*/
     
     
-    
+    if (Nprob<3){ // Dirichlet case
     mlabec_BCfill.fourthOrderBCFill(phi_new,bdry_values);
+    }
+    phi_new.FillBoundary(geom.periodicity());
+    
     
   /*  for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
     {          const Box& bx = mfi.validbox();
@@ -514,7 +544,7 @@ mlabec_BCfill.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
     {
       //amrex::Print() << "time" << time << "\n";
       // Do an SDC step
-      SDC_advance(phi_old, phi_new,flux, dt, geom, bc, mlmg,mlabec,SDCmats,a,d,r ,face_bcoef, prod_stor,time, epsilon, k_freq, kappa, bdry_values, mlabec_BCfill);
+      SDC_advance(phi_old, phi_new,flux, dt, geom, bc, mlmg,mlabec,SDCmats,a,d,r ,face_bcoef, prod_stor,time, epsilon, k_freq, kappa, bdry_values, mlabec_BCfill, Nprob);
        
       
       MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 2);    
@@ -527,7 +557,7 @@ mlabec_BCfill.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
                     const Box& bx = mfi.validbox();
                     err_phi(BL_TO_FORTRAN_BOX(bx),
                         BL_TO_FORTRAN_ANYD(phi_new[mfi]),
-                        geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa);
+                        geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa, &Nprob);
                   }
             
                     // Tell the I/O Processor to write out which step we're doing

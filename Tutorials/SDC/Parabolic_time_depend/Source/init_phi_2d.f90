@@ -1,10 +1,10 @@
-subroutine init_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi, k_freq) bind(C, name="init_phi")
+subroutine init_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi, k_freq, Nprob) bind(C, name="init_phi")
   !  Initialize the scalar field phi
   use amrex_fort_module, only : amrex_real
 
   implicit none
 
-  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2)
+  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Nprob
   real(amrex_real), intent(inout) :: phi(philo(1):phihi(1),philo(2):phihi(2))
   real(amrex_real), intent(in   ) :: dx(2) 
   real(amrex_real), intent(in   ) :: prob_lo(2) 
@@ -36,8 +36,14 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
         !print*, y_quad
         do i_quad = 0,2
         x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+        if (Nprob .EQ. 1) then
             phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                         sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+        elseif (Nprob .EQ. 3) then
+            phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                cos(k_freq*(x_quad+y_quad))
+        endif
+
 
         end do
         end do
@@ -51,13 +57,13 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
   end do
 end subroutine init_phi
 
-subroutine init_beta(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,epsilon, k_freq) bind(C, name="init_beta")
+subroutine init_beta(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,epsilon, k_freq, Nprob) bind(C, name="init_beta")
 !  Initialize the scalar field phi
 use amrex_fort_module, only : amrex_real
 
 implicit none
 
-integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2)
+integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Nprob
 real(amrex_real), intent(inout) :: phi(philo(1):phihi(1),philo(2):phihi(2))
 real(amrex_real), intent(in   ) :: dx(2)
 real(amrex_real), intent(in   ) :: prob_lo(2)
@@ -101,8 +107,13 @@ y = prob_lo(2) + dble(j) * dx(2)
         !print*, y_quad
             do i_quad = 0,4
             x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+            if (Nprob .EQ. 1) then
                 phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                     (1.d0+epsilon*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)))
+            elseif (Nprob .EQ. 3) then
+                phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                    (1.d0+epsilon*sin(k_freq*(x_quad+y_quad)))
+            endif
 
             end do
         end do
@@ -110,14 +121,14 @@ y = prob_lo(2) + dble(j) * dx(2)
 end do
 end subroutine init_beta
 
-subroutine err_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,a,d,r,time, epsilon, k_freq, kappa) bind(C, name="err_phi")
+subroutine err_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,a,d,r,time, epsilon, k_freq, kappa, Nprob) bind(C, name="err_phi")
   !  Subtract the exact solution from phi.  This will only work for special initial conditions
   !  We use the exact discretized form for diffusion and reaction, and exact translation for advection
   use amrex_fort_module, only : amrex_real
 
   implicit none
 
-  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2)
+  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Nprob
   real(amrex_real), intent(inout) :: phi(philo(1):phihi(1),philo(2):phihi(2))
   real(amrex_real), intent(in   ) :: dx(2) 
   real(amrex_real), intent(in   ) :: prob_lo(2) 
@@ -137,17 +148,6 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
 
   tupi=3.14159265358979323846d0*2d0
   pi=3.14159265358979323846d0
-
-  !  Form the diffusion coefficient for the 2nd order Laplacian produces
-!  sym=d*(-2.0d0+2.0d0*cos(tupi*dx(1)))/(dx(1)*dx(1))
-!  sym=sym+d*(-2.0d0+2.0d0*cos(tupi*dx(2)))/(dx(2)*dx(2))
-!  sym=    d*(-3.0d1+32.0d0*cos(tupi*dx(1))-2.0d0*cos(tupi*2.0d0*dx(1)))/(1.2d1*dx(1)*dx(1))
- ! sym=sym+d*(-3.0d1+32.0d0*cos(tupi*dx(2))-2.0d0*cos(tupi*2.0d0*dx(2)) )/(1.2d1*dx(2)*dx(2))
- ! sym=sym-r    !  Add reaction
-
- ! t0=0.0025d0/d
-  !nbox = ceiling(sqrt(4.0*d*(t0+time)*37.0)/2.0)  !  Decide how many periodic images
-
  
 
   do j = philo(2), phihi(2)
@@ -173,8 +173,13 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
             !print*, y_quad
                 do i_quad = 0,2
                 x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+                if (Nprob .EQ. 1) then
                     phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                    exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+                        exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+                elseif (Nprob .EQ. 3) then
+                    phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                        exp(-kappa*time)*cos(k_freq*(x_quad+y_quad))
+                endif
 
                 end do
             end do

@@ -1,7 +1,7 @@
 
 subroutine SDC_feval_F(lo, hi, domlo, domhi, phi, philo, phihi, &
                          fluxx, fxlo, fxhi, fluxy, fylo, fyhi,f, flo,fhi, &
-                         dx,a,d,r,facex, facexlo, facexhi,facey, faceylo, faceyhi,prodx, prodxlo, prodxhi,prody, prodylo, prodyhi,n,time, epsilon, k_freq, kappa) bind(C, name="SDC_feval_F")
+                         dx,a,d,r,facex, facexlo, facexhi,facey, faceylo, faceyhi,prodx, prodxlo, prodxhi,prody, prodylo, prodyhi,n,time, epsilon, k_freq, kappa, Nprob) bind(C, name="SDC_feval_F")
  ! facex, facexlo, facexhi,facey, faceylo, faceyhi
   !  Compute the rhs terms
 ! Assumes you have 2 ghost cells for flux that way you can do product rule
@@ -17,7 +17,7 @@ subroutine SDC_feval_F(lo, hi, domlo, domhi, phi, philo, phihi, &
   real(amrex_real), intent(inout) :: f   (flo(1):fhi(1),flo(2):fhi(2))
   real(amrex_real), intent(in)    :: dx(2)
   real(amrex_real), intent(in)    :: a,d,r,time, epsilon, k_freq, kappa
-  integer, intent(in) :: n
+  integer, intent(in) :: n, Nprob ! n is Npiece
  integer facexlo(2), facexhi(2)
 real(amrex_real), intent(in) :: facex( facexlo(1): facexhi(1), facexlo(2): facexhi(2))
  integer faceylo(2), faceyhi(2)
@@ -69,7 +69,8 @@ pi=3.14159265358979323846d0
                     !print*, y_quad
                 do i_quad = 0,2
                     x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
-                    f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                    if (Nprob .EQ. 1) then
+                        f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
                             -kappa*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
                             -d*k_freq*( &
@@ -78,6 +79,15 @@ pi=3.14159265358979323846d0
                                 -2.d0*epsilon*k_freq*exp(-kappa*time)*((sin(k_freq*x_quad))**2)*((sin(k_freq*y_quad))**2) &
                             )&
                             )
+                    elseif (Nprob .EQ. 3) then
+                        f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                            (&
+                            epsilon*4.d0*d*(k_freq**2)*exp(-kappa*time)* &
+                            cos(k_freq*(x_quad+y_quad))*sin(k_freq*(x_quad+y_quad)) + &
+                            (-kappa)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) + &
+                            2*d*(k_freq**2.d0)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) &
+                            )
+                    endif
 
 
                 end do
@@ -301,13 +311,13 @@ end subroutine cc_to_face_loc
 
 
 
-subroutine fill_bdry_values(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,time, epsilon, k_freq, kappa)bind(C, name="fill_bdry_values")
+subroutine fill_bdry_values(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,time, epsilon, k_freq, kappa, Nprob)bind(C, name="fill_bdry_values")
 !  Initialize the scalar field phi
 use amrex_fort_module, only : amrex_real
 
 implicit none
 
-integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2)
+integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Nprob
 real(amrex_real), intent(inout) :: phi(philo(1):phihi(1),philo(2):phihi(2))
 real(amrex_real), intent(in   ) :: dx(2)
 real(amrex_real), intent(in   ) :: prob_lo(2)

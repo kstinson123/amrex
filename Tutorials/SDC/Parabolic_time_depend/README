@@ -26,6 +26,9 @@ This code can also be run as an IMEX advection-diffusion example
 simply by setting Npieces=2 in main.cpp.  This should also be
 equivalent to setting r=0.
 
+Nprob = 1 is homog
+Nprob = 3 is periodic
+
 The source code is located in the  directory Source.  To compile the example, cd to Exec and enter
 
 >make
@@ -33,6 +36,8 @@ The source code is located in the  directory Source.  To compile the example, cd
 To run the example in Exec
 
 > ./main2d.gnu.ed inputs_2d
+Or
+> ./main2d.gnu.ex inputs_2d numGS=10 maxresk=1500 n_cell=256 max_grid_size=64 plot_int=0 relaxation_parameter=1.5 Nprob=3
 
 After completion, one can use amrvis to view the solution or errors.
 

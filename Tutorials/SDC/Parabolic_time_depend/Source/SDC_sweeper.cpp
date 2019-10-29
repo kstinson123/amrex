@@ -18,7 +18,7 @@ void SDC_advance(MultiFab& phi_old,
 		 MLABecLaplacian& mlabec,
 		 SDCstruct &SDC, Real a, Real d, Real r,
          std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
-         std::array<MultiFab,AMREX_SPACEDIM>& prod_stor, Real time, Real epsilon, Real k_freq, Real kappa, MultiFab& bdry_values, MLABecLaplacian& mlabec_BCfill)
+         std::array<MultiFab,AMREX_SPACEDIM>& prod_stor, Real time, Real epsilon, Real k_freq, Real kappa, MultiFab& bdry_values, MLABecLaplacian& mlabec_BCfill, int Nprob)
 {
 
   /*  This is a multi-implicit SDC example time step for an 
@@ -44,26 +44,20 @@ void SDC_advance(MultiFab& phi_old,
 
   // Fill the ghost cells of each grid from the other grids
   // includes periodic domain boundaries
-// Fill Dirichlet
+    // Fill Dirichlet values
     bdry_values.setVal(0,0); bdry_values.setBndry(0);
-    
-    for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
-    {          const Box& bx = mfi.validbox();
-        fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
-                         BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa);
+    if(Nprob<3){
+        for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
+        {          const Box& bx = mfi.validbox();
+            fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
+                             BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
+                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+        }
+       
+        mlabec_BCfill.fourthOrderBCFill(SDC.sol[0],bdry_values);
     }
-   
-    
- /*   for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
-    {          const Box& bx = mfi.validbox();
-        
-                         print_multifab(BL_TO_FORTRAN_ANYD(SDC.sol[0][mfi]));
-                        print_multifab(BL_TO_FORTRAN_ANYD(bdry_values[mfi]));
-    }*/
-    
-    mlabec_BCfill.fourthOrderBCFill(SDC.sol[0],bdry_values);
-   // SDC.sol[0].FillBoundary(geom.periodicity());
+    // Fill periodic values and interal ghost cells
+    SDC.sol[0].FillBoundary(geom.periodicity());
     
 
   /*  for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
@@ -76,11 +70,7 @@ void SDC_advance(MultiFab& phi_old,
   
   //  Compute the first function value (Need boundary filled here at current time explicit).
   int sdc_m=0;
-  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_m,-1,time, epsilon, k_freq, kappa);
-    
-    
-    
-    
+  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_m,-1,time, epsilon, k_freq, kappa, Nprob);
     
     
   // Copy first function value to all nodes
@@ -88,8 +78,8 @@ void SDC_advance(MultiFab& phi_old,
     {
         current_time = time+dt*nodeFrac[sdc_n];
       //MultiFab::Copy(SDC.f[0][sdc_n],SDC.f[0][0], 0, 0, 1, 0);
-        // Subsequent Calculation doesn't need dirichlet conditions
-     SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_n,0,current_time, epsilon, k_freq, kappa);
+        // Subsequent Calculation doesn't need BC conditions
+     SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_n,0,current_time, epsilon, k_freq, kappa, Nprob);
     /*    BoxArray bam(geom.Domain());
         MultiFab Marc(bam,DistributionMapping(bam),1,0);
         Marc.copy(SDC.f[0][0]);
@@ -134,20 +124,23 @@ void SDC_advance(MultiFab& phi_old,
         // Get Implicit time value
         current_time = time+dt*nodeFrac[sdc_m+1];
         // Fill Dirichlet Values
-        for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
-        {          const Box& bx = mfi.validbox();
-            fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
-                             BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa);
+        if (Nprob<3){
+            for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
+            {          const Box& bx = mfi.validbox();
+                fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
+                                 BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
+                                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+            }
+            mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
         }
-        mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
-      //  SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
+        // Fill periodic values and interal ghost cells
+        SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
         
         
         
 	  // Solve for the first implicit part
         
-	  SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt,a,d,r,face_bcoef,prod_stor,sdc_m+1,1, current_time, epsilon, k_freq, kappa, mlabec_BCfill, k);
+	  SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt,a,d,r,face_bcoef,prod_stor,sdc_m+1,1, current_time, epsilon, k_freq, kappa, mlabec_BCfill, k, Nprob);
      
         
         
@@ -161,23 +154,25 @@ void SDC_advance(MultiFab& phi_old,
 	      SDC.SDC_rhs_misdc(phi_new,dt,sdc_m);
 	      
 	      // Solve for the second implicit part
-	      SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt, a,d,r,face_bcoef,prod_stor,sdc_m+1,2, current_time, epsilon, k_freq, kappa, mlabec_BCfill, k);
+	      SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt, a,d,r,face_bcoef,prod_stor,sdc_m+1,2, current_time, epsilon, k_freq, kappa, mlabec_BCfill, k, Nprob);
 	    }
 	  // Compute the function values at node sdc_m+1
         
         // Shouldn't need the following BC code as the solve should linearly maintain it.
-        for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
-        {          const Box& bx = mfi.validbox();
-            fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
-                             BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa);
+        if (Nprob<3){
+            for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
+            {          const Box& bx = mfi.validbox();
+                fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
+                                 BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
+                                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+            }
+            mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
         }
-        mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
-       // SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
+        SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
         //       mlabec.fillSolutionBC(0, SDC.sol[sdc_m+1], &bdry_values);
       //  amrex::Print() << "current time" << current_time <<"\n";
 	  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,
-                sdc_m+1,-1,current_time,epsilon, k_freq, kappa);
+                sdc_m+1,-1,current_time,epsilon, k_freq, kappa, Nprob);
 
 	} // end SDC substep loop
         
@@ -204,13 +199,11 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
 	       Real a,Real d,Real r,
            std::array<MultiFab, AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab, AMREX_SPACEDIM>& prod_stor,
-	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa)
+	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa, int Nprob)
 {
   /*  Evaluate explicitly the rhs terms of the equation at the SDC node "sdc_m".
       The input parameter "npiece" describes which term to do.  
       If npiece = -1, do all the pieces */
-    
-    
    
     
   const BoxArray &ba=SDC.sol[0].boxArray();
@@ -252,7 +245,7 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
               BL_TO_FORTRAN_ANYD(face_bcoef[1][mfi]),
               BL_TO_FORTRAN_ANYD(prod_stor[0][mfi]),
               BL_TO_FORTRAN_ANYD(prod_stor[1][mfi]),
-              &n, &time, &epsilon, &k_freq, &kappa);
+              &n, &time, &epsilon, &k_freq, &kappa, &Nprob);
 	}
       
     }
@@ -267,11 +260,12 @@ void SDC_fcomp(MultiFab& rhs,
 	       Real dt,Real a,Real d,Real r,
            std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab,AMREX_SPACEDIM>& prod_stor,
-	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa, MLABecLaplacian& mlabec_BCfill, int numsweeps)
+	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa, MLABecLaplacian& mlabec_BCfill, int numsweeps, int Nprob)
 {
   /*  Solve implicitly for the implicit terms of the equation at the SDC node "sdc_m".
       The input parameter "npiece" describes which term to do.  */
- 
+    ParmParse pp;
+    
   const BoxArray &ba=SDC.sol[0].boxArray();
   const DistributionMapping &dm=SDC.sol[0].DistributionMap();
 
@@ -309,15 +303,15 @@ void SDC_fcomp(MultiFab& rhs,
     
     MultiFab bdry_values(ba, dm, 1, 1);
     bdry_values.setVal(0.0); bdry_values.setBndry(0);
-    
-    for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
-    {          const Box& bx = mfi.validbox();
-        fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
-                         BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa);
+    if (Nprob < 3){
+        for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
+        {          const Box& bx = mfi.validbox();
+            fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
+                             BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
+                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa, &Nprob);
+        }
+        mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m],bdry_values);
     }
-    
-    mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m],bdry_values);
     
     SDC.sol[sdc_m].FillBoundary(geom.periodicity());
     
@@ -352,7 +346,23 @@ void SDC_fcomp(MultiFab& rhs,
       //  mlabec.setLevelBC(0, &SDC.sol[sdc_m]);
         // set level BC to 0
         int resk=0;
-        int maxresk=1500;
+        
+        int maxresk;
+        if (Nprob<3){
+            maxresk = 1500;
+        }
+        else {
+            maxresk = 10;
+        }
+        pp.query("maxresk",maxresk);
+        int numGS=10;
+        if (Nprob<3){
+            numGS = 10;
+        }
+        else {
+            numGS = 1000;
+        }
+        pp.query("numGS",numGS);
         
         while ((resnorm > tol_res) & (resk <=maxresk))
         {
@@ -374,7 +384,7 @@ void SDC_fcomp(MultiFab& rhs,
                             BL_TO_FORTRAN_ANYD(face_bcoef[1][mfi]),
                             BL_TO_FORTRAN_ANYD(prod_stor[0][mfi]),
                             BL_TO_FORTRAN_ANYD(prod_stor[1][mfi]),
-                            &npiece, &zeroReal, &zeroReal, &zeroReal, &zeroReal);
+                            &npiece, &zeroReal, &zeroReal, &zeroReal, &zeroReal, &Nprob);
                 
             }
             //Rescale eval_storage to make resid.
@@ -449,9 +459,9 @@ void SDC_fcomp(MultiFab& rhs,
             /////////////////////////////////////////////////////////////////
             // SMOOTHER
             /////////////////////////////////////////////////////////////////
-            for(int g = 1; g<=10;g++){
-            mlabec.fourthOrderBCFill(corr,temp_zero);
-            corr.FillBoundary(geom.periodicity());
+            for(int g = 1; g<=numGS;g++){
+                if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
+             corr.FillBoundary(geom.periodicity());
             
                 
             //mlabec.prepareForSolve();
@@ -474,8 +484,7 @@ void SDC_fcomp(MultiFab& rhs,
           //  mlabec_BCfill.fourthOrderBCFill(corr,temp_zero);
             
             MultiFab::Saxpy(SDC.sol[sdc_m],1.0,corr,0,0,1,0);
-            
-            mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m],bdry_values);
+            if (Nprob<3){mlabec_BCfill.fourthOrderBCFill(SDC.sol[sdc_m],bdry_values);}
             SDC.sol[sdc_m].FillBoundary(geom.periodicity());
            
             /////////////////////////////////////////////////////////////////////////////
