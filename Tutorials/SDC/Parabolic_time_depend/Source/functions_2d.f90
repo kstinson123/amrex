@@ -69,7 +69,7 @@ pi=3.14159265358979323846d0
                     !print*, y_quad
                 do i_quad = 0,2
                     x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
-                    if (Nprob .EQ. 1) then
+                    if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                         f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
                             -kappa*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &

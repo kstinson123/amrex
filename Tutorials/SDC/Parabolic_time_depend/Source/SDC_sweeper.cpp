@@ -33,7 +33,7 @@ void SDC_advance(MultiFab& phi_old,
   */
     
     // Need to advance time in here as we have a forcing term: So we make nodal fraction which you use as you step through the array.
-    
+    // std::cout << std::setprecision(30), Print() << SetPrecision(30) << …stuff…, Print().SetPrecision(30) << a << std::endl;
     std::array<Real,5> nodeFrac = {0.0,(1.0-sqrt(3.0/7.0))/2.0,0.5,(1.0+sqrt(3.0/7.0))/2.0,1.0};
   Real qij;
     Real current_time = time;

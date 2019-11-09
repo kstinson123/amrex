@@ -78,7 +78,7 @@ void main_main ()
             bc_lo[idim] = 3;
             bc_hi[idim] = 3;
         }
-        else if (Nprob==3) {
+        else if (Nprob>=3) {
             bc_lo[idim] = 0;
             bc_hi[idim] = 0;
         }

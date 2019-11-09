@@ -28,6 +28,7 @@ equivalent to setting r=0.
 
 Nprob = 1 is homog
 Nprob = 3 is periodic
+Nprob = 4 is periodic analysis of Nprob=1.
 
 The source code is located in the  directory Source.  To compile the example, cd to Exec and enter
 
