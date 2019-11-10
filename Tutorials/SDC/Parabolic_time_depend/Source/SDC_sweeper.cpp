@@ -463,9 +463,9 @@ void SDC_fcomp(MultiFab& rhs,
             // SMOOTHER
             /////////////////////////////////////////////////////////////////
             for(int g = 1; g<=numGS;g++){
-                if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
+                if (Nprob<3){mlabec_BCfill.fourthOrderBCFill(corr,temp_zero); }
              corr.FillBoundary(geom.periodicity());
-            
+            mlabec.setLevelBC(0, &temp_zero); // this problem stays homog
 	     mlmg.setFixedIter(3);                
 	     mlabec.prepareForSolve();
 	     mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);	     
