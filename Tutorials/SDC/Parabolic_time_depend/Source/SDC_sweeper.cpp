@@ -34,9 +34,9 @@ void SDC_advance(MultiFab& phi_old,
     
     // Need to advance time in here as we have a forcing term: So we make nodal fraction which you use as you step through the array.
     // std::cout << std::setprecision(30), Print() << SetPrecision(30) << …stuff…, Print().SetPrecision(30) << a << std::endl;
-    std::array<Real,5> nodeFrac = {0.0,(1.0-sqrt(3.0/7.0))/2.0,0.5,(1.0+sqrt(3.0/7.0))/2.0,1.0};
+
   Real qij;
-    Real current_time = time;
+  Real current_time = time;
   const BoxArray &ba=phi_old.boxArray();
   const DistributionMapping &dm=phi_old.DistributionMap();
   // Copy old phi into first SDC node
@@ -76,7 +76,9 @@ void SDC_advance(MultiFab& phi_old,
   // Copy first function value to all nodes
   for (int sdc_n = 1; sdc_n < SDC.Nnodes; sdc_n++)
     {
-        current_time = time+dt*nodeFrac[sdc_n];
+        
+      //        current_time = time+dt*nodeFrac[sdc_n];
+        current_time = time+dt*SDC.qnodes[sdc_n];
       //MultiFab::Copy(SDC.f[0][sdc_n],SDC.f[0][0], 0, 0, 1, 0);
         // Subsequent Calculation doesn't need BC conditions
      SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_n,0,current_time, epsilon, k_freq, kappa, Nprob);
@@ -100,7 +102,6 @@ void SDC_advance(MultiFab& phi_old,
   //  Now do the actual sweeps
   for (int k=1; k <= SDC.Nsweeps; ++k)
     {
-      amrex::Print() << "sweep " << k << "\n";
 
       //  Compute RHS integrals
       SDC.SDC_rhs_integrals(dt);
@@ -108,6 +109,7 @@ void SDC_advance(MultiFab& phi_old,
       //  Substep over SDC nodes
       for (int sdc_m = 0; sdc_m < SDC.Nnodes-1; sdc_m++)
 	{
+	  amrex::Print() << "sweep " << k << ", substep " << sdc_m+1 <<"\n";
         
 	  // use phi_new as rhs and fill it with terms at this iteration
 	  SDC.SDC_rhs_k_plus_one(phi_new,dt,sdc_m);
@@ -122,7 +124,9 @@ void SDC_advance(MultiFab& phi_old,
 	    }
      // SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
         // Get Implicit time value
-        current_time = time+dt*nodeFrac[sdc_m+1];
+	  //        current_time = time+dt*nodeFrac[sdc_m+1];
+        current_time = time+dt*SDC.qnodes[sdc_m+1];
+	
         // Fill Dirichlet Values
         if (Nprob<3){
             for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
@@ -171,6 +175,7 @@ void SDC_advance(MultiFab& phi_old,
         SDC.sol[sdc_m+1].FillBoundary(geom.periodicity());
         //       mlabec.fillSolutionBC(0, SDC.sol[sdc_m+1], &bdry_values);
       //  amrex::Print() << "current time" << current_time <<"\n";
+	//  
 	  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,
                 sdc_m+1,-1,current_time,epsilon, k_freq, kappa, Nprob);
 
@@ -272,7 +277,7 @@ void SDC_fcomp(MultiFab& rhs,
   const Box& domain_bx = geom.Domain();
   const Real* dx = geom.CellSize();
   Real qij;
-    Real qijalt;
+  Real t;
     
     // relative and absolute tolerances for linear solve
   const Real tol_rel = 1.e-12;
@@ -338,7 +343,7 @@ void SDC_fcomp(MultiFab& rhs,
         
         //  Set diffusion scalar in solve
         qij = dt*SDC.Qimp[sdc_m-1][sdc_m];
-        Real ascalar = 1.0;
+	Real ascalar = 1.0;
         mlabec.setScalars(ascalar, d*qij);
         
         // set the boundary conditions
@@ -402,9 +407,7 @@ void SDC_fcomp(MultiFab& rhs,
             ++resk;
             
            if(resnorm <= tol_res){
-                
-                    amrex::Print() << "Reached tolerance" << "\n";
-               amrex::Print() << "iter " << resk << ",  residual norm " << resnorm << "\n";
+               amrex::Print() << "Reached tolerance: iter " << resk << ",  residual norm " << resnorm << "\n";
                 
                 break;
             }
@@ -463,9 +466,10 @@ void SDC_fcomp(MultiFab& rhs,
                 if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
              corr.FillBoundary(geom.periodicity());
             
-                
-            //mlabec.prepareForSolve();
-            mlabec.Fsmooth(0, 0, corr , resid, 0);
+	     mlmg.setFixedIter(3);                
+	     mlabec.prepareForSolve();
+	     mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);	     
+	     //mlabec.Fsmooth(0, 0, corr , resid, 0);
             }
             //////////////////////////////////////////////////////////////////
             ////////////////////////////
