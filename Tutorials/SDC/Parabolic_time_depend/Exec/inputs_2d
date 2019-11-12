@@ -9,9 +9,9 @@ n_cell = 256
 max_grid_size = 1280
 
 #  Define SDC parameters
-Nnodes=5
-Npieces=3
-Nsweeps=8
+Nnodes=2
+Npieces=2
+Nsweeps=1
 
 #  Define the advection, diffusion, and reaction parameters
 a=0.0

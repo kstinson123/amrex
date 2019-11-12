@@ -28,7 +28,7 @@ integer prodylo(2), prodyhi(2)
 real(amrex_real), intent(inout) :: prody( prodylo(1): prodyhi(1), prodylo(2): prodyhi(2))
 
 integer          :: i,j, i_quad, j_quad
-double precision :: x,y,pi, x_quad, y_quad
+double precision :: x,y,pi, x_quad, y_quad,kx,ky
 real(amrex_real) :: phi_one, face_one
 
 double precision :: gauss_nodeFrac(0:2)
@@ -67,16 +67,18 @@ pi=3.14159265358979323846d0
                 do j_quad = 0,2
                     y_quad = y + dx(2)*gauss_nodeFrac(j_quad)
                     !print*, y_quad
+                    ky=k_freq*y_quad
                 do i_quad = 0,2
-                    x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+                   x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+                   kx=k_freq*x_quad
                     if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                         f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
-                            -kappa*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
+                            -kappa*exp(-kappa*time)*sin(kx)*sin(ky) &
                             -d*k_freq*( &
-                                -2.d0*k_freq*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
-                                + epsilon*k_freq*exp(-kappa*time)*(((sin(k_freq*y_quad))**2)*((cos(k_freq*x_quad))**2) + ((cos(k_freq*y_quad))**2)*((sin(k_freq*x_quad))**2)) &
-                                -2.d0*epsilon*k_freq*exp(-kappa*time)*((sin(k_freq*x_quad))**2)*((sin(k_freq*y_quad))**2) &
+                                -2.d0*k_freq*exp(-kappa*time)*sin(kx)*sin(ky) &
+                                + epsilon*k_freq*exp(-kappa*time)*((sin(ky)**2)*(cos(kx)**2) + (cos(ky)**2)*(sin(kx)**2)) &
+                                -2.d0*epsilon*k_freq*exp(-kappa*time)*(sin(kx)**2)*(sin(ky)**2) &
                             )&
                             )
                     elseif (Nprob .EQ. 3) then

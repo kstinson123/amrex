@@ -628,6 +628,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
 void
 MLCellLinOp::fourthOrderBCFill (MultiFab& in, MultiFab& bdry_values)
 {
+  Abort("should not be here in fourthOrderBCFill");
     BL_PROFILE("MLCellLinOp::fourthOrderBCFill()");
     MLCellLinOp::setLevelBC(0, &bdry_values);
     MLCellLinOp::applyBC (0,0, in, BCMode::Inhomogeneous, StateMode::Solution,

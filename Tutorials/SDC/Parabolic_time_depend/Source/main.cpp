@@ -194,11 +194,11 @@ void main_main ()
 
     // Make an SDC structure
     int Nnodes=5;  // Default to 8th order
-    int Npieces=3; // Default is full MISDC
+    int Npieces=2; // Default is full MISDC
     int Nsweeps=2*Nnodes-2;  //  This will give highest formal accuracy for Lobatto nodes
     pp.get("Nnodes",Nnodes);
     pp.get("Npieces",Npieces);
-    //    pp.get("Nsweeps",Nsweeps);  //  Uncomment to adjust Nsweeps          
+    pp.get("Nsweeps",Nsweeps);  //  Uncomment to adjust Nsweeps          
 
     //  Build the structure
     SDCstruct SDCmats(Nnodes,Npieces,phi_old);
@@ -237,8 +237,10 @@ void main_main ()
   LPInfo info;
   
   // Implicit solve using MLABecLaplacian class
-  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
-  MLABecLaplacian mlabec_BCfill({geom}, {ba}, {dm}, info);
+  //  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
+  //  MLABecLaplacian mlabec_BCfill({geom}, {ba}, {dm}, info);
+  Kerrek mlabec({geom}, {ba}, {dm}, info);
+  Kerrek mlabec_BCfill({geom}, {ba}, {dm}, info);
   // order of stencil
   int linop_maxorder = 4; // Change this?
   mlabec.setMaxOrder(linop_maxorder);
@@ -386,7 +388,6 @@ mlabec_BCfill.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
   int cg_verbose = 0;
   mlmg.setCGVerbose(cg_verbose);
   
-    
     
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
  /*   /////////////////////////////////////////////////////////////////////////////////////////////////////////
