@@ -454,7 +454,7 @@ void SDC_fcomp(MultiFab& rhs,
             
             
             //mlmg.setFixedIter(3);
-    //        mlabec.setLevelBC(0, &temp_zero);
+            mlabec.setLevelBC(0, &temp_zero);
     //        mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);
             
             corr.setVal(0.0);
@@ -463,7 +463,8 @@ void SDC_fcomp(MultiFab& rhs,
             // SMOOTHER
             /////////////////////////////////////////////////////////////////
             for(int g = 1; g<=numGS;g++){
-                if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
+	      //                if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
+	      if (Nprob<3){mlabec_BCfill.fourthOrderBCFill(corr,temp_zero); }
              corr.FillBoundary(geom.periodicity());
             
 	     mlmg.setFixedIter(3);                
