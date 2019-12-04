@@ -79,13 +79,30 @@ pi=3.14159265358979323846d0
                                 -2.d0*epsilon*k_freq*exp(-kappa*time)*((sin(k_freq*x_quad))**2)*((sin(k_freq*y_quad))**2) &
                             )&
                             )
+                    elseif (Nprob .EQ. 2) then
+                        f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
+                            (&
+                            -kappa*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
+                            -d*k_freq*( &
+                            -2.d0*k_freq*exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
+                            + epsilon*k_freq*exp(-kappa*time)*(((sin(k_freq*y_quad))**2)*((cos(k_freq*x_quad))**2) + ((cos(k_freq*y_quad))**2)*((sin(k_freq*x_quad))**2)) &
+                            -2.d0*epsilon*k_freq*exp(-kappa*time)*((sin(k_freq*x_quad))**2)*((sin(k_freq*y_quad))**2) &
+                            )&
+                            - d *( &
+                            -2.d0*(k_freq**2.d0)*cos(k_freq*(x_quad+y_quad)) + &
+                            -(k_freq**2.d0)*epsilon*sin(k_freq*y_quad)*(cos(k_freq*x_quad)*sin(k_freq*(x_quad+y_quad)) + sin(k_freq*x_quad)*cos(k_freq*(x_quad+y_quad))) + &
+                            -(k_freq**2.d0)*epsilon*sin(k_freq*x_quad)*(cos(k_freq*y_quad)*sin(k_freq*(x_quad+y_quad)) + sin(k_freq*y_quad)*cos(k_freq*(x_quad+y_quad)))  &
+                            ) &
+                            )
+
+
                     elseif (Nprob .EQ. 3) then
                         f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
                             epsilon*4.d0*d*(k_freq**2)*exp(-kappa*time)* &
                             cos(k_freq*(x_quad+y_quad))*sin(k_freq*(x_quad+y_quad)) + &
                             (-kappa)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) + &
-                            2*d*(k_freq**2.d0)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) &
+                            2.d0*d*(k_freq**2.d0)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) &
                             )
                     endif
 
@@ -352,12 +369,16 @@ end if
             do j_quad = 0,2
             y_quad = y + dx(2)*gauss_nodeFrac(j_quad)
             !print*, y_quad
-
+                if (Nprob .EQ. 1) then
                 phi(face_index,j) = phi(face_index,j)+ gauss_weights(j_quad)* &
                     0.d0
+                elseif (Nprob .EQ. 2) then
+                phi(face_index,j) = phi(face_index,j)+ gauss_weights(j_quad)* &
+                    cos(k_freq*(x+y_quad))
+            endif
 
             end do
-            phi(face_index,j) = 0.d0  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
     end do
 end do
@@ -381,12 +402,18 @@ end if
 
             do i_quad = 0,2
             x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
+
+            if (Nprob .EQ. 1) then
             phi(i,face_index) = phi(i,face_index)+ gauss_weights(i_quad)* &
                 0.d0
+            elseif (Nprob .EQ. 2) then
+            phi(i,face_index) = phi(i,face_index)+ gauss_weights(i_quad)* &
+                cos(k_freq*(x_quad+y))
+            endif
 
             end do
 
-            phi(i,face_index) = 0.d0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
     !phi(i,j)=cos(pi*(x+y))
     ! phi(i,j) = 0;

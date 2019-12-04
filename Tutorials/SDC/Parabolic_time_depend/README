@@ -27,6 +27,7 @@ simply by setting Npieces=2 in main.cpp.  This should also be
 equivalent to setting r=0.
 
 Nprob = 1 is homog
+Nprob = 2 is inhomog
 Nprob = 3 is periodic
 Nprob = 4 is periodic analysis of Nprob=1.
 

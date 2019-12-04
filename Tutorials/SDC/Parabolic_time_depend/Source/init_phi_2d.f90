@@ -39,6 +39,10 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
         if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
             phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                         sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+        elseif (Nprob .EQ. 2) then
+            phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* (&
+                cos(k_freq*(x_quad+y_quad)) + sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) &
+                )
         elseif (Nprob .EQ. 3) then
             phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                 cos(k_freq*(x_quad+y_quad))
@@ -107,7 +111,7 @@ y = prob_lo(2) + dble(j) * dx(2)
         !print*, y_quad
             do i_quad = 0,4
             x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
-            if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
+            if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4) .OR. (Nprob .EQ. 2)) then
                 phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                     (1.d0+epsilon*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)))
             elseif (Nprob .EQ. 3) then
@@ -176,6 +180,10 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
                 if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                     phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
                         exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+                elseif (Nprob .EQ. 2) then
+                    phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* (&
+                        exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)) + cos(k_freq*(x_quad+y_quad)) &
+                        )
                 elseif (Nprob .EQ. 3) then
                     phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
                         exp(-kappa*time)*cos(k_freq*(x_quad+y_quad))
