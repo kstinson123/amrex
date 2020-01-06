@@ -10,7 +10,7 @@ void mlabeclap_adotx (Box const& box, Array4<Real> const& y,
                       Array4<Real const> const& bX,
                       Array4<Real const> const& bY,
                       GpuArray<Real,AMREX_SPACEDIM> const& dxinv,
-                      Real alpha, Real beta, int ncomp) noexcept
+                      Real alpha, Real beta, int ncomp, int Lord) noexcept
 {
     const Real dhx = beta*dxinv[0]*dxinv[0];
     const Real dhy = beta*dxinv[1]*dxinv[1];
@@ -27,13 +27,14 @@ void mlabeclap_adotx (Box const& box, Array4<Real> const& y,
     for     (int j = lo.y; j <= hi.y; ++j) {
         AMREX_PRAGMA_SIMD
         for (int i = lo.x; i <= hi.x; ++i) {
-            /*
+            if (Lord == 222) {
             y(i,j,0,n) = alpha*a(i,j,0)*x(i,j,0,n)
                 - dhx * (bX(i+1,j,0,n)*(x(i+1,j,0,n) - x(i  ,j,0,n))
                        - bX(i  ,j,0,n)*(x(i  ,j,0,n) - x(i-1,j,0,n)))
                 - dhy * (bY(i,j+1,0,n)*(x(i,j+1,0,n) - x(i,j  ,0,n))
                        - bY(i,j  ,0,n)*(x(i,j  ,0,n) - x(i,j-1,0,n)));
-            */
+            }
+            else if (Lord == 444){
             
             
              gamma = alpha*a(i,j,0)
@@ -53,7 +54,7 @@ void mlabeclap_adotx (Box const& box, Array4<Real> const& y,
              
              y(i,j,0,n) = gamma*x(i,j,0,n)-rho;
              
-            
+            }
             
         }
     }
@@ -368,7 +369,6 @@ void abec_gsrb_high (Box const& box, Array4<Real> const& phi,
                      << " " << bY(i,j+1,0,n) << " " << phi(i,j+2,0,n) << "\n";
                     Abort("diag");
                 }*/
-               
                 
             }
         }

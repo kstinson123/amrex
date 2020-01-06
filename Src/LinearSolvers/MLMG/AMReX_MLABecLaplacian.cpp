@@ -300,7 +300,7 @@ MLABecLaplacian::Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& i
         AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
         {
             mlabeclap_adotx(tbx, yfab, xfab, afab, AMREX_D_DECL(bxfab,byfab,bzfab),
-                            dxinv, ascalar, bscalar, ncomp);
+                            dxinv, ascalar, bscalar, ncomp, Lord);
         });
     }
 }
@@ -486,8 +486,22 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
     //    temp_b_x.FillBoundary(m_geom[amrlev][mglev].periodicity());
     //    temp_b_y.FillBoundary(m_geom[amrlev][mglev].periodicity());
         
-        
+        const auto& undrrelxr = m_undrrelxr[amrlev][mglev];
         const auto& maskvals  = m_maskvals [amrlev][mglev];
+        
+        OrientationIter oitr;
+        
+        const FabSet& f0 = undrrelxr[oitr()]; ++oitr;
+        const FabSet& f1 = undrrelxr[oitr()]; ++oitr;
+#if (AMREX_SPACEDIM > 1)
+        const FabSet& f2 = undrrelxr[oitr()]; ++oitr;
+        const FabSet& f3 = undrrelxr[oitr()]; ++oitr;
+#if (AMREX_SPACEDIM > 2)
+        const FabSet& f4 = undrrelxr[oitr()]; ++oitr;
+        const FabSet& f5 = undrrelxr[oitr()]; ++oitr;
+#endif
+#endif
+        
         
         const MultiMask& mm0 = maskvals[0];
         const MultiMask& mm1 = maskvals[1];
@@ -543,6 +557,16 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
             const auto& rhsfab  = rhs.array(mfi);
             const auto& afab    = acoef.array(mfi);
             
+            const auto& f0fab = f0.array(mfi);
+            const auto& f1fab = f1.array(mfi);
+#if (AMREX_SPACEDIM > 1)
+            const auto& f2fab = f2.array(mfi);
+            const auto& f3fab = f3.array(mfi);
+#if (AMREX_SPACEDIM > 2)
+            const auto& f4fab = f4.array(mfi);
+            const auto& f5fab = f5.array(mfi);
+#endif
+#endif
             
             AMREX_D_TERM(const auto& bxfab = bxcoef.array(mfi);,
                          const auto& byfab = bycoef.array(mfi);,
@@ -557,10 +581,22 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
 #if (AMREX_SPACEDIM == 2)
             AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
              {
-                 abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
+                 
+                 if(Lord == 222){
+                     abec_gsrb(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
                            afab, bxfab, byfab,
-                           m0, m1, m2, m3,
-                           vbx, nc, phi_tmpfab, m_relaxation_parameter);
+                           f0fab, m0,
+                           f1fab, m1,
+                           f2fab, m2,
+                           f3fab, m3,
+                           vbx, nc, redblack);
+                 }
+                 else if (Lord == 444){
+                     abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
+                               afab, bxfab, byfab,
+                               m0, m1, m2, m3,
+                               vbx, nc, phi_tmpfab, m_relaxation_parameter);
+                 }
              });
 #endif
             

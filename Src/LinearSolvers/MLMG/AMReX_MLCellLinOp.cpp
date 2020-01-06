@@ -59,7 +59,8 @@ MLCellLinOp::defineAuxData ()
             for (OrientationIter oitr; oitr; ++oitr)
             {
                 const Orientation face = oitr();
-                const int ngrow = 2; //Changed from 1
+                
+                const int ngrow = cellLord/222; // 1 or 2
                 const int extent = 0; // isCrossStencil() ? 0 : 1; // extend to corners
                 m_maskvals[amrlev][mglev][face].define(m_grids[amrlev][mglev],
                                                        m_dmap[amrlev][mglev],
@@ -370,7 +371,7 @@ MLCellLinOp::smooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs,
                      bool skip_fillboundary) const
 {
     BL_PROFILE("MLCellLinOp::smooth()");
-    // Redblack doesn't make sense with 4th order scheme.
+    // Redblack doesn't make sense with 4th order scheme. Can bring back RB with Lord.
     int redblack = 0;
         applyBC(amrlev, mglev, sol, BCMode::Homogeneous, StateMode::Solution,
                 nullptr, skip_fillboundary);
@@ -597,10 +598,10 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        BL_TO_FORTRAN_ANYD(m),
                                        cdr, bct, bcl,
                                        BL_TO_FORTRAN_ANYD(fsfab),
-                                       maxorder, dxinv, flagbc, ncomp, cross);
+                                       maxorder, dxinv, flagbc, ncomp, cross, cellLord);
             }
           
-            
+            // Lazy. Done twice to fill corners?
             for (OrientationIter oitr; oitr; ++oitr)
             {
                 const Orientation ori = oitr();
@@ -619,7 +620,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        BL_TO_FORTRAN_ANYD(m),
                                        cdr, bct, bcl,
                                        BL_TO_FORTRAN_ANYD(fsfab),
-                                       maxorder, dxinv, flagbc, ncomp, cross);
+                                       maxorder, dxinv, flagbc, ncomp, cross, cellLord);
             }
         }
     }

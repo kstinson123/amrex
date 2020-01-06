@@ -67,6 +67,8 @@ void main_main ()
     pp.query("Nprob",Nprob);
     int Lord=222;
     pp.query("Lord",Lord);
+    int MGord=222;
+    pp.query("MGord",MGord);
     
     // Manufactured solution parameters
     Real k_freq =3.14159265358979323846;
@@ -242,8 +244,9 @@ void main_main ()
   //  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
   Kerrek mlabec({geom}, {ba}, {dm}, info);
   // order of stencil
-  int linop_maxorder = 4; // Change this?
+  int linop_maxorder = MGord/111; // Change this?
   mlabec.setMaxOrder(linop_maxorder);
+  mlabec.setLord(MGord);
   
   // build array of boundary conditions needed by MLABecLaplacian
   // see Src/Boundary/AMReX_LO_BCTYPES.H for supported types
@@ -316,7 +319,7 @@ void main_main ()
                  BL_TO_FORTRAN_ANYD(BccCoef[mfi]),
                  geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&epsilon, &k_freq, &Nprob);
     }
-    BccCoef.FillBoundary();
+    BccCoef.FillBoundary(geom.periodicity());
 
     std::array<MultiFab,AMREX_SPACEDIM> face_bcoef;
    // Product Storage

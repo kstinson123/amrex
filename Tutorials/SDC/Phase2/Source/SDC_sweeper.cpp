@@ -266,9 +266,9 @@ void SDC_fcomp(MultiFab& rhs,
   Real t;
     
     // relative and absolute tolerances for linear solve
-  const Real tol_rel = 1.0e-7;
-  const Real tol_abs = 1.0e-7;
-  const Real tol_res = 1.e-7;    // Tolerance on residual
+  const Real tol_rel = 1.0e-10;
+  const Real tol_abs = 0;
+  const Real tol_res = 1.e-10;    // Tolerance on residual
   Real resnorm = 1.e10;    // Tolerance on residual
     Real zeroReal = 0.0;
     Real corrnorm;

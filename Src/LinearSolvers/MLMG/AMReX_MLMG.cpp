@@ -169,8 +169,8 @@ MLMG::solve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab const*>& a_rh
         }
         timer[iter_time] = amrex::second() - iter_start_time;
     }
-
-    int ng_back = final_fill_bc ? 2 : 0; //was 1
+    // Lord needed here somehow
+    int ng_back = final_fill_bc ? 1 : 0; //was 1
     for (int alev = 0; alev < namrlevs; ++alev)
     {
         if (a_sol[alev] != sol[alev])
@@ -1113,7 +1113,8 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
     sol_raii.resize(namrlevs);
     for (int alev = 0; alev < namrlevs; ++alev)
     {
-        if (a_sol[alev]->nGrow() == 2)//1 What is this doing?
+        // Need Lord here
+        if (a_sol[alev]->nGrow() == 1)//1 What is this doing?
         {
             sol[alev] = a_sol[alev];
             sol[alev]->setBndry(0.0);
@@ -1177,9 +1178,9 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
             rescor[alev][mglev].setVal(0.0);
         }
     }
-
-    // ng = 1;
-    ng = 2;
+    // Need Lord here
+     ng = 1;
+    //ng = 2;
     cor.resize(namrlevs);
     for (int alev = 0; alev <= finest_amr_lev; ++alev)
     {

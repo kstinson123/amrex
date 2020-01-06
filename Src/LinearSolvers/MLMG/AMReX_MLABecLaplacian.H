@@ -38,6 +38,7 @@ public:
     void setBCoeffs (int amrlev, const Array<MultiFab const*,AMREX_SPACEDIM>& beta);
     void setBccCoeffs (int amrlev, const MultiFab& beta, const Geometry& a_geom);
     void setBCoeffsFromBcc (int amrlev);
+    void setLord (int o) noexcept { setCellLord(o); Lord = o; }
 
     virtual bool needsUpdate () const override {
         return (m_needs_update || MLCellABecLap::needsUpdate());
@@ -90,8 +91,8 @@ protected:
     Real m_relaxation_parameter;
     Vector<Vector<MultiFab> > m_a_coeffs;
     Vector<Vector<MultiFab> > m_bcc; // cell centered b(eta) values
-
     Vector<int> m_is_singular;
+    int Lord = 222; // 222 or 444 (244 is the same)
 };
 
 }
