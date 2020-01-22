@@ -287,8 +287,8 @@ contains
        ! Fill corners with averages for non-cross stencil
 #if (AMREX_SPACEDIM > 1)
 
-! previously cross .eq. 0
-       if (inhomogeneous) then
+! previously cross .eq. 0 // Need Lord to make inhomogeneous param
+       if (cross .eq. 0) then
           ! The iteration over faces is always in the order of xlo, ylo, zlo, xhi, yhi and zhi.
 
 do m=0,3

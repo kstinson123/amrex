@@ -60,8 +60,8 @@ MLCellLinOp::defineAuxData ()
             {
                 const Orientation face = oitr();
                 
-                const int ngrow = cellLord/222; // 1 or 2
-                const int extent = 0; // isCrossStencil() ? 0 : 1; // extend to corners
+                const int ngrow = 1; // 1 or 2 Need Lord
+                const int extent = isCrossStencil() ? 0 : 1; // extend to corners // was hard set to 0 for 444
                 m_maskvals[amrlev][mglev][face].define(m_grids[amrlev][mglev],
                                                        m_dmap[amrlev][mglev],
                                                        m_geom[amrlev][mglev],
@@ -430,7 +430,7 @@ MLCellLinOp::solutionResidual (int amrlev, MultiFab& resid, MultiFab& x, const M
 }
 
 void
-    MLCellLinOp::fillSolutionBC (int amrlev, MultiFab& sol, const MultiFab* crse_bcdata)
+MLCellLinOp::fillSolutionBC (int amrlev, MultiFab& sol, const MultiFab* crse_bcdata)
 {
     BL_PROFILE("MLCellLinOp::fillSolutionBC()");
     if (crse_bcdata != nullptr) {
@@ -477,7 +477,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
     BL_ASSERT(bndry != nullptr || bc_mode == BCMode::Homogeneous);
 
     const int ncomp = getNComp();
-    const int cross = 0; //isCrossStencil();
+    const int cross = isCrossStencil(); // hard set to 0 for 444
     const int tensorop = isTensorOp();
     if (!skip_fillboundary) {
         in.FillBoundary(0, ncomp, m_geom[amrlev][mglev].periodicity(),cross);
@@ -601,7 +601,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        maxorder, dxinv, flagbc, ncomp, cross, cellLord);
             }
           
-            // Lazy. Done twice to fill corners?
+            /*// Lazy. Done twice to fill corners? Needs Lord
             for (OrientationIter oitr; oitr; ++oitr)
             {
                 const Orientation ori = oitr();
@@ -621,7 +621,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        cdr, bct, bcl,
                                        BL_TO_FORTRAN_ANYD(fsfab),
                                        maxorder, dxinv, flagbc, ncomp, cross, cellLord);
-            }
+            }*/
         }
     }
 }

@@ -64,7 +64,7 @@ void main_main ()
     
     // Manufactured solution parameters
     Real k_freq =3.14159265358979323846;
-    Real epsilon = 0.25;
+    Real epsilon = 0 ;// 0.25;
     Real kappa = 2*d*pow(k_freq,2.0); // This choice leads to cancellation analytically. Doesn't matter now.
     
     
@@ -274,8 +274,8 @@ void main_main ()
     }
     //test_norm = BccCoef.norm0();
     //amrex::Print() << "Check 1: " << test_norm << "\n";
-    mlabec.setBccCoeffs(0, BccCoef, geom);
-    mlabec.setBCoeffsFromBcc(0);
+  // CHECK  mlabec.setBccCoeffs(0, BccCoef, geom);
+  // CHECK  mlabec.setBCoeffsFromBcc(0);
     // Could delete BccCoef as m_bcc is currently public.
     // Given that we do actually need face_bcoef space out here, it's not clear that the above code seems like the right choice.
     
@@ -287,7 +287,7 @@ void main_main ()
   mlmg.setMaxIter(max_iter);
   int max_fmg_iter = 0;
   mlmg.setMaxFmgIter(max_fmg_iter);
-  int verbose = 0;
+  int verbose = 1;
   mlmg.setVerbose(verbose);
   int cg_verbose = 0;
   mlmg.setCGVerbose(cg_verbose);
@@ -303,13 +303,13 @@ void main_main ()
         const BoxArray& bamg = amrex::convert(acoef.boxArray(),
                                               IntVect::TheDimensionVector(idim));
         face_bcoef[idim].define(bamg, acoef.DistributionMap(), 1, 2); //Ghost cells here
-        MultiFab::Copy(face_bcoef[idim], mlabec.m_b_coeffs[0][0][idim], 0, 0, 1, 0);
-        //face_bcoef[idim].setVal(1.0);
+      // CHECK  MultiFab::Copy(face_bcoef[idim], mlabec.m_b_coeffs[0][0][idim], 0, 0, 1, 0);
+        face_bcoef[idim].setVal(1.0);
         face_bcoef[idim].FillBoundary(geom.periodicity());
         
         prod_stor[idim].define(bamg, acoef.DistributionMap(), 1,0);
     }
-    
+    mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef)); // CHECK
 // Need to create getBcoeff function in MLABecLap. Eventually, move computations to
     
     
