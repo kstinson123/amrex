@@ -42,7 +42,7 @@ contains
     real(amrex_real), intent(in   ) :: bcval(blo(1):bhi(1),blo(2):bhi(2),blo(3):bhi(3),nc)
 
     integer :: i, j, k, idim, lenx, m
-    logical :: inhomogeneous
+    logical :: inhomogeneous, checkLord
     real(amrex_real) ::    x(-1:maxorder-2)
     real(amrex_real) :: coef(-1:maxorder-2), coef2(-maxorder+2:1)
     real(amrex_real), parameter :: xInt = -0.5D0
@@ -285,10 +285,15 @@ contains
        end if
 
        ! Fill corners with averages for non-cross stencil
+if (Lord == 222) then
+    checkLord = (cross .eq. 0)
+else
+    checkLord = inhomogeneous
+endif
 #if (AMREX_SPACEDIM > 1)
 
 ! previously cross .eq. 0 // Need Lord to make inhomogeneous param
-       if (cross .eq. 0) then
+       if (checkLord) then
           ! The iteration over faces is always in the order of xlo, ylo, zlo, xhi, yhi and zhi.
 
 do m=0,3

@@ -163,7 +163,7 @@ public:
     Vector<int> const& getNumCGIters () const noexcept { return m_niters_cg; }
 
 private:
-
+    int Lord = 444;
     int verbose = 1;
     int max_iters = 200;
     int do_fixed_number_of_iters = 0;

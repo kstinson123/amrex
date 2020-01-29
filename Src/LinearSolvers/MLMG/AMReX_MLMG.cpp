@@ -177,7 +177,7 @@ MLMG::solve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab const*>& a_rh
         timer[iter_time] = amrex::second() - iter_start_time;
     }
     // Lord needed here somehow
-    int ng_back = final_fill_bc ? 1 : 0; //was 1
+    int ng_back = (final_fill_bc || (Lord==444)) ? 1 : 0; //was 1
     for (int alev = 0; alev < namrlevs; ++alev)
     {
         if (a_sol[alev] != sol[alev])
@@ -1138,7 +1138,8 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
         {
             sol[alev] = a_sol[alev];
         }
-        else if (a_sol[alev]->nGrow() == 1)
+        else if (  (Lord==222 && a_sol[alev]->nGrow() == 1)
+                   || (Lord==444 && a_sol[alev]->nGrow() == 2))
         {
             sol[alev] = a_sol[alev];
             sol[alev]->setBndry(0.0);
@@ -1147,7 +1148,7 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
         {
             if (!solve_called) {
                 sol_raii[alev].reset(new MultiFab(a_sol[alev]->boxArray(),
-                                                  a_sol[alev]->DistributionMap(), ncomp, 1,//1
+                                                  a_sol[alev]->DistributionMap(), ncomp, 1,//1 Did this ever change?
                                                   MFInfo(), *linop.Factory(alev)));
             }
             sol_raii[alev]->setVal(0.0);
@@ -1206,7 +1207,7 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
         }
     }
 
-    if (cf_strategy == CFStrategy::none) ng = 1; // Does this need to be two for 4th order?
+    if (cf_strategy == CFStrategy::none) ng = (Lord==222 ? 1 : 2);
     cor.resize(namrlevs);
     for (int alev = 0; alev <= finest_amr_lev; ++alev)
     {
