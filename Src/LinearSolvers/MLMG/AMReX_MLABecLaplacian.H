@@ -92,7 +92,7 @@ protected:
     Vector<Vector<MultiFab> > m_a_coeffs;
     Vector<Vector<MultiFab> > m_bcc; // cell centered b(eta) values
     Vector<int> m_is_singular;
-    int Lord = 222; // 222 or 444 (244 is the same)
+    int Lord = 444; // 222 or 444 (244 is the same)
 };
 
 }

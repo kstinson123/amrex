@@ -60,8 +60,8 @@ MLCellLinOp::defineAuxData ()
             {
                 const Orientation face = oitr();
                 
-                const int ngrow = 1; // 1 or 2 Need Lord
-                const int extent = isCrossStencil() ? 0 : 1; // extend to corners // was hard set to 0 for 444
+                const int ngrow = (cellLord==222) ? 1:2; // 1 or 2 Need Lord
+                const int extent = (isCrossStencil() || (cellLord==444)) ? 0 : 1; // extend to corners // was hard set to 0 for 444 (seems like 1 would make more sense)
                 m_maskvals[amrlev][mglev][face].define(m_grids[amrlev][mglev],
                                                        m_dmap[amrlev][mglev],
                                                        m_geom[amrlev][mglev],
@@ -477,7 +477,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
     BL_ASSERT(bndry != nullptr || bc_mode == BCMode::Homogeneous);
 
     const int ncomp = getNComp();
-    const int cross = isCrossStencil(); // hard set to 0 for 444
+    const int cross = (isCrossStencil() && (cellLord==222)); // hard set to 0 for 444
     const int tensorop = isTensorOp();
     if (!skip_fillboundary) {
         in.FillBoundary(0, ncomp, m_geom[amrlev][mglev].periodicity(),cross);
@@ -601,27 +601,29 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        maxorder, dxinv, flagbc, ncomp, cross, cellLord);
             }
           
-            /*// Lazy. Done twice to fill corners? Needs Lord
-            for (OrientationIter oitr; oitr; ++oitr)
-            {
-                const Orientation ori = oitr();
-                
-                int  cdr = ori;
-                Real bcl = bdl[ori];
-                int  bct = bdc[ori];
-                
-                foofab.setVal(10.0);
-                const FArrayBox& fsfab = (bndry != nullptr) ? bndry->bndryValues(ori)[mfi] : foofab;
-                
-                const Mask& m = maskvals[ori][mfi];
-                
-                amrex_mllinop_apply_bc(BL_TO_FORTRAN_BOX(vbx),
-                                       BL_TO_FORTRAN_ANYD(in[mfi]),
-                                       BL_TO_FORTRAN_ANYD(m),
-                                       cdr, bct, bcl,
-                                       BL_TO_FORTRAN_ANYD(fsfab),
-                                       maxorder, dxinv, flagbc, ncomp, cross, cellLord);
-            }*/
+            // Needs Lord
+            if(cellLord==444){
+                for (OrientationIter oitr; oitr; ++oitr)
+                {
+                    const Orientation ori = oitr();
+                    
+                    int  cdr = ori;
+                    Real bcl = bdl[ori];
+                    int  bct = bdc[ori];
+                    
+                    foofab.setVal(10.0);
+                    const FArrayBox& fsfab = (bndry != nullptr) ? bndry->bndryValues(ori)[mfi] : foofab;
+                    
+                    const Mask& m = maskvals[ori][mfi];
+                    
+                    amrex_mllinop_apply_bc(BL_TO_FORTRAN_BOX(vbx),
+                                           BL_TO_FORTRAN_ANYD(in[mfi]),
+                                           BL_TO_FORTRAN_ANYD(m),
+                                           cdr, bct, bcl,
+                                           BL_TO_FORTRAN_ANYD(fsfab),
+                                           maxorder, dxinv, flagbc, ncomp, cross, cellLord);
+                }
+            }
         }
     }
 }

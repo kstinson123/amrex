@@ -143,7 +143,7 @@ public:
     int bottomSolveWithCG (MultiFab& x, const MultiFab& b, MLCGSolver::Type type);
 
 private:
-
+    int Lord = 444;
     int verbose = 1;
     int max_iters = 200;
     int do_fixed_number_of_iters = 0;

@@ -179,7 +179,7 @@ protected:
 
     Vector<std::unique_ptr<MLMGBndry> > m_bndry_cor;
     Vector<std::unique_ptr<BndryRegister> > m_crse_cor_br;
-    int cellLord = 222;
+    int cellLord = 444;
 
     // In case of agglomeration, coarse MG grids on amr level 0 are
     // not simply coarsened from fine MG grids.  So we need to build

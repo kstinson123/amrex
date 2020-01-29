@@ -170,7 +170,7 @@ MLMG::solve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab const*>& a_rh
         timer[iter_time] = amrex::second() - iter_start_time;
     }
     // Lord needed here somehow
-    int ng_back = final_fill_bc ? 1 : 0; //was 1
+    int ng_back = (final_fill_bc || (Lord==444)) ? 1 : 0; //was 1
     for (int alev = 0; alev < namrlevs; ++alev)
     {
         if (a_sol[alev] != sol[alev])
@@ -1114,7 +1114,7 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
     for (int alev = 0; alev < namrlevs; ++alev)
     {
         // Need Lord here
-        if (a_sol[alev]->nGrow() == 1)//1 What is this doing?
+        if (a_sol[alev]->nGrow() == (Lord/222))//1:2 What is this doing?
         {
             sol[alev] = a_sol[alev];
             sol[alev]->setBndry(0.0);
@@ -1123,7 +1123,7 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
         {
             if (!solve_called) {
                 sol_raii[alev].reset(new MultiFab(a_sol[alev]->boxArray(),
-                                                  a_sol[alev]->DistributionMap(), ncomp, 1,//1
+                                                  a_sol[alev]->DistributionMap(), ncomp, 1,//1 Did this ever change?
                                                   MFInfo(), *linop.Factory(alev)));
             }
             sol_raii[alev]->setVal(0.0);
@@ -1179,7 +1179,7 @@ MLMG::prepareForSolve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab con
         }
     }
     // Need Lord here
-     ng = 1;
+    ng = (Lord==222)? 1:2;
     //ng = 2;
     cor.resize(namrlevs);
     for (int alev = 0; alev <= finest_amr_lev; ++alev)

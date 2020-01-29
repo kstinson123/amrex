@@ -65,9 +65,9 @@ void main_main ()
     pp.query("d",d);
     pp.query("r",r);
     pp.query("Nprob",Nprob);
-    int Lord=222;
+    int Lord=444;
     pp.query("Lord",Lord);
-    int MGord=222;
+    int MGord=444;
     pp.query("MGord",MGord);
     
     // Manufactured solution parameters
