@@ -26,6 +26,7 @@ public:
     using Location = MLLinOp::Location;
 
     using BottomSolver = amrex::BottomSolver;
+    enum class CFStrategy : int {none,ghostnodes};
 
     MLMG (MLLinOp& a_lp);
     ~MLMG ();
@@ -53,6 +54,12 @@ public:
     void compResidual (const Vector<MultiFab*>& a_res, const Vector<MultiFab*>& a_sol,
                        const Vector<MultiFab const*>& a_rhs);
 
+#ifdef AMREX_USE_EB
+    // Flux into the EB wall
+    void getEBFluxes (const Vector<MultiFab*>& a_eb_flux);
+    void getEBFluxes (const Vector<MultiFab*>& a_eb_flux, const Vector<MultiFab*> & a_sol);
+#endif
+
     /**
     * \brief ``out = L(in)``. Note that, if no actual solve is needed, one could
     * turn off multigrid coarsening by constructing a MLLinOp object
@@ -74,9 +81,12 @@ public:
     void setBottomSmooth (int n) noexcept { nub = n; }
 
     void setBottomSolver (BottomSolver s) noexcept { bottom_solver = s; }
+    void setCFStrategy (CFStrategy a_cf_strategy) noexcept {cf_strategy = a_cf_strategy;}
     void setBottomVerbose (int v) noexcept { bottom_verbose = v; }
     void setBottomMaxIter (int n) noexcept { bottom_maxiter = n; }
     void setBottomTolerance (Real t) noexcept { bottom_reltol = t; }
+    void setBottomToleranceAbs (Real t) noexcept { bottom_abstol = t;}
+    Real getBottomToleranceAbs () noexcept{ return bottom_abstol; }
     void setCGVerbose (int v) noexcept { bottom_verbose = v; }
     void setCGMaxIter (int n) noexcept { bottom_maxiter = n; }
     void setCGTolerance (Real t) noexcept { bottom_reltol = t; }
@@ -142,6 +152,16 @@ public:
 
     int bottomSolveWithCG (MultiFab& x, const MultiFab& b, MLCGSolver::Type type);
 
+    Real getInitRHS () const noexcept { return m_rhsnorm0; }
+    // Initial composite residual
+    Real getInitResidual () const noexcept { return m_init_resnorm0; }
+    // Final composite residual
+    Real getFinalResidual () const noexcept { return m_final_resnorm0; }
+    // Residuals on the *finest* AMR level after each iteration
+    Vector<Real> const& getResidualHistory () const noexcept { return m_iter_fine_resnorm0; }
+    int getNumIters () const noexcept { return m_iter_fine_resnorm0.size(); }
+    Vector<int> const& getNumCGIters () const noexcept { return m_niters_cg; }
+
 private:
 
     int verbose = 1;
@@ -156,9 +176,11 @@ private:
     int max_fmg_iters = 0;
 
     BottomSolver bottom_solver = BottomSolver::Default;
+    CFStrategy cf_strategy     = CFStrategy::none;
     int  bottom_verbose        = 0;
     int  bottom_maxiter        = 200;
     Real bottom_reltol         = 1.e-4;
+    Real bottom_abstol         = -1.0;
 
     int always_use_bnorm = 0;
 
@@ -227,6 +249,12 @@ private:
 
     enum timer_types { solve_time=0, iter_time, bottom_time, ntimers };
     Vector<Real> timer;
+
+    Real m_rhsnorm0 = -1.0;
+    Real m_init_resnorm0 = -1.0;
+    Real m_final_resnorm0 = -1.0;
+    Vector<int> m_niters_cg;
+    Vector<Real> m_iter_fine_resnorm0; // Residual for each iteration at the finest level
 
     void checkPoint (const Vector<MultiFab*>& a_sol, const Vector<MultiFab const*>& a_rhs,
                      Real a_tol_rel, Real a_tol_abs, const char* a_file_name) const;

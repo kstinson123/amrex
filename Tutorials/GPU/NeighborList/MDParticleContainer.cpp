@@ -41,8 +41,6 @@ InitParticles(const IntVect& a_num_particles_per_cell,
 {
     BL_PROFILE("MDParticleContainer::InitParticles");
 
-    amrex::Print() << "Generating particles... ";
-
     const int lev = 0;   
     const Real* dx = Geom(lev).CellSize();
     const Real* plo = Geom(lev).ProbLo();
@@ -55,7 +53,7 @@ InitParticles(const IntVect& a_num_particles_per_cell,
     {
         const Box& tile_box  = mfi.tilebox();
 
-        Cuda::HostVector<ParticleType> host_particles;
+        Gpu::HostVector<ParticleType> host_particles;
         
         for (IntVect iv = tile_box.smallEnd(); iv <= tile_box.bigEnd(); tile_box.next(iv)) {
             for (int i_part=0; i_part<num_ppc;i_part++) {
@@ -96,12 +94,11 @@ InitParticles(const IntVect& a_num_particles_per_cell,
         auto new_size = old_size + host_particles.size();
         particle_tile.resize(new_size);
         
-        Cuda::thrust_copy(host_particles.begin(),
-                          host_particles.end(),
-                          particle_tile.GetArrayOfStructs().begin() + old_size);        
-    }
-
-    amrex::Print() << "done. \n";
+        Gpu::copy(Gpu::hostToDevice,
+                  host_particles.begin(),
+                  host_particles.end(),
+                  particle_tile.GetArrayOfStructs().begin() + old_size);        
+    }    
 }
 
 void MDParticleContainer::computeForces()
@@ -141,15 +138,71 @@ void MDParticleContainer::computeForces()
                 
                 Real r2 = dx*dx + dy*dy + dz*dz;
                 r2 = amrex::max(r2, Params::min_r*Params::min_r);
+
+		if (r2 > Params::cutoff*Params::cutoff) return;
+
                 Real r = sqrt(r2);
                 
-                Real coef = (1.0 - Params::cutoff / r) / r2 / Params::mass;
+                Real coef = (1.0 - Params::cutoff / r) / r2;
                 p1.rdata(PIdx::ax) += coef * dx;
                 p1.rdata(PIdx::ay) += coef * dy;
                 p1.rdata(PIdx::az) += coef * dz;
             }
         });
     }
+}
+
+Real MDParticleContainer::minDistance()
+{
+    BL_PROFILE("MDParticleContainer::minDistance");
+
+    const int lev = 0;
+    const Geometry& geom = Geom(lev);
+    auto& plev  = GetParticles(lev);
+
+    Real min_d = std::numeric_limits<Real>::max();
+
+    for(MFIter mfi = MakeMFIter(lev); mfi.isValid(); ++mfi)
+    {
+        int gid = mfi.index();
+        int tid = mfi.LocalTileIndex();
+        auto index = std::make_pair(gid, tid);
+
+        auto& ptile = plev[index];
+        auto& aos   = ptile.GetArrayOfStructs();
+        const size_t np = aos.numParticles();
+
+        auto nbor_data = m_neighbor_list[index].data();
+        ParticleType* pstruct = aos().dataPtr();
+
+	Gpu::DeviceScalar<Real> min_d_gpu(min_d);
+	Real* pmin_d = min_d_gpu.dataPtr();
+
+        AMREX_FOR_1D ( np, i,
+        {
+            ParticleType& p1 = pstruct[i];
+
+            for (const auto& p2 : nbor_data.getNeighbors(i))
+            {                	      
+                Real dx = p1.pos(0) - p2.pos(0);
+                Real dy = p1.pos(1) - p2.pos(1);
+                Real dz = p1.pos(2) - p2.pos(2);
+                
+                Real r2 = dx*dx + dy*dy + dz*dz;
+                r2 = amrex::max(r2, Params::min_r*Params::min_r);
+                Real r = sqrt(r2);
+                
+		Gpu::Atomic::Min(pmin_d, r);
+            }
+        });
+
+	Gpu::Device::streamSynchronize();
+
+	min_d = std::min(min_d, min_d_gpu.dataValue());
+    }
+    ParallelDescriptor::ReduceRealMin(min_d, ParallelDescriptor::IOProcessorNumber());
+
+    return min_d;
 }
 
 void MDParticleContainer::moveParticles(const amrex::Real& dt)
@@ -205,4 +258,31 @@ void MDParticleContainer::writeParticles(const int n)
     BL_PROFILE("MDParticleContainer::writeParticles");
     const std::string& pltfile = amrex::Concatenate("particles", n, 5);
     WriteAsciiFile(pltfile);
+}
+
+
+Real MDParticleContainer::computeStepSize(amrex::Real& cfl)
+{
+    BL_PROFILE("MDParticleContainer::computeStepSize");
+
+    using ParticleType = MDParticleContainer::ParticleType;
+
+    Real maxVel = amrex::ReduceMax(*this, 0,
+    [=] AMREX_GPU_HOST_DEVICE (const ParticleType& p) noexcept -> Real
+                              {
+                                 Real u = std::abs(p.rdata(PIdx::vx));
+                                 Real v = std::abs(p.rdata(PIdx::vy));
+                                 Real w = std::abs(p.rdata(PIdx::vz));
+                                 return amrex::max(u,amrex::max(v,w));
+                              });
+
+    ParallelDescriptor::ReduceRealMax(maxVel);
+    
+    // This would compute dt based on the grid spacing dx
+    // const int lev = 0;   
+    // const Real* dx = Geom(lev).CellSize();
+    // return cfl*dx[0]/maxVel;
+
+    // This computes dt based on the particle cutoff radius
+    return cfl * Params::cutoff /maxVel;
 }

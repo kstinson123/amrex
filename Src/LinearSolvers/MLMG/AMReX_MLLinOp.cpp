@@ -136,6 +136,19 @@ MLLinOp::define (const Vector<Geometry>& a_geom,
     }
 
     info = a_info;
+#ifdef AMREX_USE_GPU
+    if (Gpu::notInLaunchRegion())
+    {
+        if (info.agg_grid_size <= 0) info.agg_grid_size = AMREX_D_PICK(32, 16, 8);
+        if (info.con_grid_size <= 0) info.con_grid_size = AMREX_D_PICK(32, 16, 8);
+    }
+    else
+#endif
+    {
+        if (info.agg_grid_size <= 0) info.agg_grid_size = LPInfo::getDefaultAgglomerationGridSize();
+        if (info.con_grid_size <= 0) info.con_grid_size = LPInfo::getDefaultConsolidationGridSize();
+    }
+
 #ifdef AMREX_USE_EB
     if (!a_factory.empty()){
         auto f = dynamic_cast<EBFArrayBoxFactory const*>(a_factory[0]);
@@ -170,6 +183,10 @@ MLLinOp::defineGrids (const Vector<Geometry>& a_geom,
 
     m_default_comm = ParallelContext::CommunicatorSub();
 
+    const RealBox& rb = a_geom[0].ProbDomain();
+    const int coord = a_geom[0].Coord();
+    const Array<int,AMREX_SPACEDIM>& is_per = a_geom[0].isPeriodic();
+
     // fine amr levels
     for (int amrlev = m_num_amr_levels-1; amrlev > 0; --amrlev)
     {
@@ -194,7 +211,7 @@ MLLinOp::defineGrids (const Vector<Geometry>& a_geom,
 
             ++(m_num_mg_levels[amrlev]);
 
-            m_geom[amrlev].emplace_back(cdom);
+            m_geom[amrlev].emplace_back(cdom, rb, coord, is_per);
 
             m_grids[amrlev].push_back(a_grids[amrlev]);
             AMREX_ASSERT(m_grids[amrlev].back().coarsenable(rr));
@@ -308,7 +325,7 @@ MLLinOp::defineGrids (const Vector<Geometry>& a_geom,
 
             for (int lev = 1; lev < last_coarsenableto_lev; ++lev)
             {
-                m_geom[0].emplace_back(amrex::coarsen(a_geom[0].Domain(),rr));
+                m_geom[0].emplace_back(amrex::coarsen(a_geom[0].Domain(),rr),rb,coord,is_per);
                 
                 m_grids[0].push_back(a_grids[0]);
                 m_grids[0].back().coarsen(rr);
@@ -320,7 +337,7 @@ MLLinOp::defineGrids (const Vector<Geometry>& a_geom,
 
             for (int lev = last_coarsenableto_lev; lev < nmaxlev; ++lev)
             {
-                m_geom[0].emplace_back(domainboxes[lev]);
+                m_geom[0].emplace_back(domainboxes[lev],rb,coord,is_per);
             
                 m_grids[0].emplace_back(boundboxes[lev]);
                 m_grids[0].back().maxSize(info.agg_grid_size);
@@ -349,7 +366,7 @@ MLLinOp::defineGrids (const Vector<Geometry>& a_geom,
                and a_geom[0].Domain().coarsenable(rr, mg_domain_min_width)
                and a_grids[0].coarsenable(rr, mg_box_min_width))
         {
-            m_geom[0].emplace_back(amrex::coarsen(a_geom[0].Domain(),rr));
+            m_geom[0].emplace_back(amrex::coarsen(a_geom[0].Domain(),rr),rb,coord,is_per);
             
             m_grids[0].push_back(a_grids[0]);
             m_grids[0].back().coarsen(rr);
@@ -468,13 +485,31 @@ MLLinOp::setDomainBC (const Array<BCType,AMREX_SPACEDIM>& a_lobc,
     m_lobc.resize(ncomp,a_lobc);
     m_hibc.resize(ncomp,a_hibc);
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        if (Geometry::isPeriodic(idim)) {
+        if (m_geom[0][0].isPeriodic(idim)) {
             AMREX_ALWAYS_ASSERT(a_lobc[idim] == BCType::Periodic);
             AMREX_ALWAYS_ASSERT(a_hibc[idim] == BCType::Periodic);
         }
         if (a_lobc[idim] == BCType::Periodic or
             a_hibc[idim] == BCType::Periodic) {
-            AMREX_ALWAYS_ASSERT(Geometry::isPeriodic(idim));
+            AMREX_ALWAYS_ASSERT(m_geom[0][0].isPeriodic(idim));
+        }
+    }
+    m_lo_inhomog_neumann.resize(ncomp);
+    m_hi_inhomog_neumann.resize(ncomp);
+    for (int n = 0; n < ncomp; ++n) {
+        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+            if (m_lobc[n][idim] == LinOpBCType::inhomogNeumann) {
+                m_lobc[n][idim] = LinOpBCType::Neumann;
+                m_lo_inhomog_neumann[n][idim] = 1;
+            } else {
+                m_lo_inhomog_neumann[n][idim] = 0;
+            }
+            if (m_hibc[n][idim] == LinOpBCType::inhomogNeumann) {
+                m_hibc[n][idim] = LinOpBCType::Neumann;
+                m_hi_inhomog_neumann[n][idim] = 1;
+            } else {
+                m_hi_inhomog_neumann[n][idim] = 0;
+            }
         }
     }
 }
@@ -488,18 +523,41 @@ MLLinOp::setDomainBC (const Vector<Array<BCType,AMREX_SPACEDIM> >& a_lobc,
                                      "MLLinOp::setDomainBC: wrong size");
     m_lobc = a_lobc;
     m_hibc = a_hibc;
+    m_lo_inhomog_neumann.resize(ncomp);
+    m_hi_inhomog_neumann.resize(ncomp);
     for (int icomp = 0; icomp < ncomp; ++icomp) {
         for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-            if (Geometry::isPeriodic(idim)) {
+            if (m_geom[0][0].isPeriodic(idim)) {
                 AMREX_ALWAYS_ASSERT(m_lobc[icomp][idim] == BCType::Periodic);
                 AMREX_ALWAYS_ASSERT(m_hibc[icomp][idim] == BCType::Periodic);
             }
             if (m_lobc[icomp][idim] == BCType::Periodic or
                 m_hibc[icomp][idim] == BCType::Periodic) {
-                AMREX_ALWAYS_ASSERT(Geometry::isPeriodic(idim));
+                AMREX_ALWAYS_ASSERT(m_geom[0][0].isPeriodic(idim));
+            }
+
+            if (m_lobc[icomp][idim] == LinOpBCType::inhomogNeumann) {
+                m_lobc[icomp][idim] = LinOpBCType::Neumann;
+                m_lo_inhomog_neumann[icomp][idim] = 1;
+            } else {
+                m_lo_inhomog_neumann[icomp][idim] = 0;
+            }
+            if (m_hibc[icomp][idim] == LinOpBCType::inhomogNeumann) {
+                m_hibc[icomp][idim] = LinOpBCType::Neumann;
+                m_hi_inhomog_neumann[icomp][idim] = 1;
+            } else {
+                m_hi_inhomog_neumann[icomp][idim] = 0;
             }
         }
     }
+}
+
+void
+MLLinOp::setDomainBCLoc (const Array<Real,AMREX_SPACEDIM>& lo_bcloc,
+                         const Array<Real,AMREX_SPACEDIM>& hi_bcloc) noexcept
+{
+    m_domain_bloc_lo = lo_bcloc;
+    m_domain_bloc_hi = hi_bcloc;
 }
 
 void

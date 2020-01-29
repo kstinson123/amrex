@@ -18,13 +18,11 @@ namespace amrex { namespace EB2 {
 Vector<std::unique_ptr<IndexSpace> > IndexSpace::m_instance;
 
 int max_grid_size = 64;
-bool compare_with_ch_eb = false;
 
 void Initialize ()
 {
     ParmParse pp("eb2");
     pp.query("max_grid_size", max_grid_size);
-    pp.query("compare_with_ch_eb", compare_with_ch_eb);
 
     amrex::ExecOnFinalize(Finalize);
 }
@@ -110,7 +108,7 @@ Build (const Geometry& geom, int required_coarsening_level,
 
         int direction;
         pp.get("cylinder_direction", direction);
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(direction >=0 && direction < AMREX_SPACEDIM,
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(direction >=0 && direction < 3,
                                          "eb2.cylinder_direction is invalid");
 
         bool has_fluid_inside;

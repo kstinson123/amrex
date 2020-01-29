@@ -36,13 +36,23 @@ AmrMesh::AmrMesh ()
     InitAmrMesh(max_level_in,n_cell_in);
 }
 
-AmrMesh::AmrMesh (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord,
-                  Vector<IntVect> a_refrat)
+AmrMesh::AmrMesh (const RealBox* rb, int max_level_in,
+                  const Vector<int>& n_cell_in, int coord,
+                  Vector<IntVect> a_refrat, const int* is_per)
 {
-  Initialize();
+    Initialize();
+    Geometry::Setup(rb,coord,is_per);
+    InitAmrMesh(max_level_in,n_cell_in, std::move(a_refrat), rb, coord, is_per);
+}
 
-  Geometry::Setup(rb,coord);
-  InitAmrMesh(max_level_in,n_cell_in, std::move(a_refrat));
+AmrMesh::AmrMesh (const RealBox& rb, int max_level_in,
+                  const Vector<int>& n_cell_in, int coord,
+                  const Vector<IntVect>& a_refrat,
+                  const Array<int,AMREX_SPACEDIM>& is_per)
+{
+    Initialize();
+    Geometry::Setup(&rb,coord,is_per.data());
+    InitAmrMesh(max_level_in,n_cell_in, a_refrat, &rb, coord, is_per.data());
 }
 
 AmrMesh::~AmrMesh ()
@@ -51,7 +61,9 @@ AmrMesh::~AmrMesh ()
 }
 
 void
-AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in, Vector<IntVect> a_refrat)
+AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
+                      Vector<IntVect> a_refrat, const RealBox* rb,
+                      int coord, const int* is_per)
 {
     verbose   = 0;
     grid_eff  = 0.7;
@@ -347,18 +359,11 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in, Vector<Int
 	Box index_domain(lo,hi);
 	for (int i = 0; i <= max_level; i++)
 	{
-	    geom[i].define(index_domain);
-	    if (i < max_level)
-		index_domain.refine(ref_ratio[i]);
+	    geom[i].define(index_domain, rb, coord, is_per);
+	    if (i < max_level) {
+                index_domain.refine(ref_ratio[i]);
+            }
 	}
-
-	Real offset[AMREX_SPACEDIM];
-	for (int i = 0; i < AMREX_SPACEDIM; i++)
-	{
-	    const Real delta = Geometry::ProbLength(i)/(Real)n_cell[i];
-	    offset[i]        = Geometry::ProbLo(i) + delta*lo[i];
-	}
-	CoordSys::SetOffset(offset);
     }
 
     {
@@ -398,6 +403,16 @@ void
 AmrMesh::SetGeometry (int lev, const Geometry& geom_in) noexcept
 {
     geom[lev] = geom_in;
+}
+
+int
+AmrMesh::GetLevel (Box const& domain) noexcept
+{
+    Box ccdomain = amrex::enclosedCells(domain);
+    for (int lev = 0; lev < geom.size(); ++lev) {
+        if (geom[lev].Domain() == ccdomain) return lev;
+    }
+    return -1;
 }
 
 void
@@ -508,8 +523,9 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
     p_n_comp[lbase].complementIn(pc_domain[lbase],bl);
     p_n_comp[lbase].simplify();
     p_n_comp[lbase].accrete(n_proper);
-    if (Geometry::isAnyPeriodic()) {
-	ProjPeriodic(p_n_comp[lbase], Geometry(pc_domain[lbase]));
+    if (geom[lbase].isAnyPeriodic()) {
+        ProjPeriodic(p_n_comp[lbase], pc_domain[lbase],
+                     geom[lbase].isPeriodic());
     }
     p_n[lbase].complementIn(pc_domain[lbase],p_n_comp[lbase]);
     p_n[lbase].simplify();
@@ -525,8 +541,8 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
         p_n_comp[i].refine(rr_lev[i-1]);
         p_n_comp[i].accrete(n_proper);
 
-	if (Geometry::isAnyPeriodic()) {
-	    ProjPeriodic(p_n_comp[i], Geometry(pc_domain[i]));
+	if (geom[i].isAnyPeriodic()) {
+	    ProjPeriodic(p_n_comp[i], pc_domain[i], geom[i].isPeriodic());
 	}
 
         p_n[i].complementIn(pc_domain[i],p_n_comp[i]);
@@ -681,7 +697,10 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
         //
         // Map tagged points through periodic boundaries, if any.
         //
-        tags.mapPeriodic(Geometry(pc_domain[levc]));
+        tags.mapPeriodic(Geometry(pc_domain[levc],
+                                  Geom(levc).ProbDomain(),
+                                  Geom(levc).CoordInt(),
+                                  Geom(levc).isPeriodic()));
         //
         // Remove cells outside proper nesting domain for this level.
         //
@@ -847,12 +866,12 @@ AmrMesh::MakeNewGrids (Real time)
 }
 
 void
-AmrMesh::ProjPeriodic (BoxList& blout, const Geometry& geom)
+AmrMesh::ProjPeriodic (BoxList& blout, const Box& domain,
+                       Array<int,AMREX_SPACEDIM> const& is_per)
 {
     //
     // Add periodic translates to blout.
     //
-    Box domain = geom.Domain();
 
     BoxList blorig(blout);
 
@@ -866,34 +885,34 @@ AmrMesh::ProjPeriodic (BoxList& blout, const Geometry& geom)
     int ri,rj,rk;
     for (ri = nist; ri <= niend; ri++)
     {
-        if (ri != 0 && !geom.isPeriodic(0))
+        if (ri != 0 && !is_per[0])
             continue;
-        if (ri != 0 && geom.isPeriodic(0))
+        if (ri != 0 && is_per[0])
             blorig.shift(0,ri*domain.length(0));
         for (rj = njst; rj <= njend; rj++)
         {
-            if (rj != 0 && !geom.isPeriodic(1))
+            if (rj != 0 && !is_per[1])
                 continue;
-            if (rj != 0 && geom.isPeriodic(1))
+            if (rj != 0 && is_per[1])
                 blorig.shift(1,rj*domain.length(1));
             for (rk = nkst; rk <= nkend; rk++)
             {
-                if (rk != 0 && !geom.isPeriodic(2))
+                if (rk != 0 && !is_per[2])
                     continue;
-                if (rk != 0 && geom.isPeriodic(2))
+                if (rk != 0 && is_per[2])
                     blorig.shift(2,rk*domain.length(2));
 
                 BoxList tmp(blorig);
                 tmp.intersect(domain);
                 blout.catenate(tmp);
 
-                if (rk != 0 && geom.isPeriodic(2))
+                if (rk != 0 && is_per[2])
                     blorig.shift(2,-rk*domain.length(2));
             }
-            if (rj != 0 && geom.isPeriodic(1))
+            if (rj != 0 && is_per[1])
                 blorig.shift(1,-rj*domain.length(1));
         }
-        if (ri != 0 && geom.isPeriodic(0))
+        if (ri != 0 && is_per[0])
             blorig.shift(0,-ri*domain.length(0));
     }
 }
@@ -934,6 +953,21 @@ AmrMesh::checkInput ()
     }
 
     //
+    // Check that blocking_factor is a power of 2.
+    //
+    for (int i = 0; i <= max_level; i++)
+    {
+        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+        {
+            int k = blocking_factor[i][idim];
+            while ( k > 0 && (k%2 == 0) )
+                k /= 2;
+            if (k != 1)
+                amrex::Error("Amr::checkInput: blocking_factor not power of 2. You can bypass this by setting ParmParse runtime parameter amr.check_input=0, although we do not recommend it.");
+        }
+    }
+
+    //
     // Check that max_grid_size is a multiple of blocking_factor at every level.
     //   (only check if blocking_factor <= max_grid_size)
     //
@@ -952,7 +986,7 @@ AmrMesh::checkInput ()
         }
     }
 
-    if( ! (Geometry::ProbDomain().volume() > 0.0) ) {
+    if( ! (Geom(0).ProbDomain().volume() > 0.0) ) {
         amrex::Error("Amr::checkInput: bad physical problem size");
     }
 

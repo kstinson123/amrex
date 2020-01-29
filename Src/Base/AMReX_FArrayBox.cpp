@@ -153,25 +153,34 @@ FABio* FArrayBox::fabio = 0;
 
 FArrayBox::FArrayBox () noexcept {}
 
-FArrayBox::FArrayBox (const Box& b,
-                      int        n,
-		      bool       alloc,
-		      bool       shared)
-    :
-    BaseFab<Real>(b,n,alloc,shared)
+FArrayBox::FArrayBox (Arena* ar) noexcept
+    : BaseFab<Real>(ar)
+{}
+
+FArrayBox::FArrayBox (const Box& b, int ncomp, Arena* ar)
+    : BaseFab<Real>(b,ncomp,ar)
+{
+    initVal();
+}
+
+FArrayBox::FArrayBox (const Box& b, int n, bool alloc, bool shared, Arena* ar)
+    : BaseFab<Real>(b,n,alloc,shared,ar)
 {
     if (alloc) initVal();
 }
 
 FArrayBox::FArrayBox (const FArrayBox& rhs, MakeType make_type, int scomp, int ncomp)
-    :
-    BaseFab<Real>(rhs,make_type,scomp,ncomp)
+    : BaseFab<Real>(rhs,make_type,scomp,ncomp)
 {
 }
 
 FArrayBox::FArrayBox (const Box& b, int ncomp, Real* p) noexcept
-    :
-    BaseFab<Real>(b,ncomp,p)
+    : BaseFab<Real>(b,ncomp,p)
+{
+}
+
+FArrayBox::FArrayBox (const Box& b, int ncomp, Real const* p) noexcept
+    : BaseFab<Real>(b,ncomp,p)
 {
 }
 
@@ -185,35 +194,37 @@ FArrayBox::operator= (Real v) noexcept
 void
 FArrayBox::initVal () noexcept
 {
-    if (init_snan) {
-#ifdef BL_USE_DOUBLE
+    Real * p = dataPtr();
+    long s = size();
+    if (p and s > 0) {
+        if (init_snan) {
 #if defined(AMREX_USE_GPU)
-
-//         double * p = dataPtr();
-//         AMREX_LAUNCH_HOST_DEVICE_LAMBDA (truesize, i,
-//         {
-// #ifdef UINT64_MAX
-//             const uint64_t snan = UINT64_C(0x7ff0000080000001);
-// #else
-//             static_assert(sizeof(double) == sizeof(long long), "sizeof double != sizeof long long");
-//             const long long snan = 0x7ff0000080000001LL;
-// #endif
-//             double* pi = p + i;
-//             std::memcpy(pi, &snan, sizeof(double));
-//         });
-
-#else
-	amrex_array_init_snan(dataPtr(), truesize);
+            if (Gpu::inLaunchRegion())
+            {
+#if (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+                amrex::ParallelFor(s, [=] AMREX_GPU_DEVICE (long i) noexcept
+                {
+                    p[i] = std::numeric_limits<Real>::signaling_NaN();
+                });
 #endif
+            }
+            else
 #endif
-    } else if (do_initval) {
-	setVal(initval);
+            {
+                amrex_array_init_snan(p, s);
+            }
+        } else if (do_initval) {
+            const Real x = initval;
+            AMREX_HOST_DEVICE_PARALLEL_FOR_1D( s, i,
+            {
+                p[i] = x;
+            });
+        }
     }
 }
 
 void
-FArrayBox::resize (const Box& b,
-                   int        N)
+FArrayBox::resize (const Box& b, int N)
 {
     BaseFab<Real>::resize(b,N);
     initVal();
@@ -617,9 +628,7 @@ FABio::read_header (std::istream& is,
 }
 
 void
-FArrayBox::writeOn (std::ostream& os,
-                    int           comp,
-                    int           num_comp) const
+FArrayBox::writeOn (std::ostream& os, int comp, int num_comp) const
 {
 //    BL_PROFILE("FArrayBox::writeOn");
     BL_ASSERT(comp >= 0 && num_comp >= 1 && (comp+num_comp) <= nComp());
@@ -762,7 +771,7 @@ FABio_8bit::write (std::ostream&    os,
 {
     BL_ASSERT(comp >= 0 && num_comp >= 1 && (comp+num_comp) <= f.nComp());
 
-    const Real eps = Real(1.0e-8); // FIXME - whats a better value?
+    const Real eps = 1.0e-8_rt; // FIXME - whats a better value?
     const long siz = f.box().numPts();
 
     unsigned char *c = new unsigned char[siz];

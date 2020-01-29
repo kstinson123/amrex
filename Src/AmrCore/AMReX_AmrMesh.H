@@ -16,11 +16,22 @@ class AmrMesh
 {
 public:
     AmrMesh ();
-    AmrMesh (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord=-1,
-             Vector<IntVect> refrat = Vector<IntVect>());
+
+    AmrMesh (const RealBox* rb, int max_level_in,
+             const Vector<int>& n_cell_in, int coord=-1,
+             Vector<IntVect> refrat = Vector<IntVect>(),
+             const int* is_per = nullptr);
+
+    AmrMesh (const RealBox& rb, int max_level_in,
+             const Vector<int>& n_cell_in, int coord,
+             Vector<IntVect> const& ref_ratios,
+             Array<int,AMREX_SPACEDIM> const& is_per);
 
     AmrMesh (const AmrMesh& rhs) = delete;
     AmrMesh& operator= (const AmrMesh& rhs) = delete;
+
+    AmrMesh (AmrMesh&& rhs) = default;
+    AmrMesh& operator= (AmrMesh&& rhs) = default;
 
     virtual ~AmrMesh ();
 
@@ -48,6 +59,31 @@ public:
     const Geometry& Geom (int lev) const noexcept { return geom[lev]; }
     const DistributionMapping& DistributionMap (int lev) const noexcept { return dmap[lev]; }
     const BoxArray& boxArray (int lev) const noexcept { return grids[lev]; }
+
+    Vector<Geometry> Geom (int a_coarsest_lev, int a_finest_lev) const noexcept {
+        Vector<Geometry> r;
+        r.reserve(a_finest_lev-a_coarsest_lev+1);
+        for (int lev = a_coarsest_lev; lev <= a_finest_lev; ++lev) {
+            r.push_back(geom[lev]);
+        }
+        return r;
+    }
+    Vector<BoxArray> boxArray (int a_coarsest_lev, int a_finest_lev) const noexcept {
+        Vector<BoxArray> r;
+        r.reserve(a_finest_lev-a_coarsest_lev+1);
+        for (int lev = a_coarsest_lev; lev <= a_finest_lev; ++lev) {
+            r.push_back(grids[lev]);
+        }
+        return r;
+    }
+    Vector<DistributionMapping> DistributionMap (int a_coarsest_lev, int a_finest_lev) const noexcept {
+        Vector<DistributionMapping> r;
+        r.reserve(a_finest_lev-a_coarsest_lev+1);
+        for (int lev = a_coarsest_lev; lev <= a_finest_lev; ++lev) {
+            r.push_back(dmap[lev]);
+        }
+        return r;
+    }
 
     Vector<Geometry>& Geom () noexcept { return geom; }
     Geometry& Geom (int lev) noexcept { return geom[lev]; }
@@ -93,6 +129,9 @@ public:
     void SetDistributionMap (int lev, const DistributionMapping& dmap_in) noexcept;
     void SetBoxArray (int lev, const BoxArray& ba_in) noexcept;
     void SetGeometry (int lev, const Geometry& geom_in) noexcept;
+
+    //! Given domain box, return AMR level.  Return -1 if there is no match.
+    int GetLevel (Box const& domain) noexcept;
 
     void ClearDistributionMap (int lev) noexcept;
     void ClearBoxArray (int lev) noexcept;
@@ -205,9 +244,12 @@ protected:
 
 private:
     void InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
-                      Vector<IntVect> refrat = Vector<IntVect>());
+                      Vector<IntVect> refrat = Vector<IntVect>(),
+                      const RealBox* rb = nullptr, int coord = -1,
+                      const int* is_per = nullptr);
 
-    static void ProjPeriodic (BoxList& bd, const Geometry& geom);
+    static void ProjPeriodic (BoxList& bd, const Box& domain,
+                              Array<int,AMREX_SPACEDIM> const& is_per);
 };
 
 }

@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <string>
 #include <vector>
 #include <array>
@@ -44,8 +45,13 @@ Coord read_df_node_coord (const std::string & name)
     if (name == "cori") {
         group = cabx / 2 + caby * 6; // 2 cabinets per group, 6 groups per row
     } else {
-        Print() << "Could not determine group!";
+        amrex::Print() << "Could not determine group!";
+// HIP FIX HERE
+#ifdef AMREX_USE_HIP
+        abort();
+#else
         std::abort();
+#endif
     }
     int chas = cab_chas + 3*(cabx & 1); // 2 cabinets per group (6 chassis per group)
 
@@ -404,10 +410,9 @@ class Machine
     // this is collective over ALL ranks in the job
     Vector<int> get_node_ids ()
     {
-        int node_id = -1;
         Vector<int> ids(ParallelDescriptor::NProcs(), 0);
 #ifdef BL_USE_MPI
-        node_id = get_my_node_id();
+        int node_id = get_my_node_id();
         ParallelAllGather::AllGather(node_id, ids.data(), ParallelContext::CommunicatorAll());
 #endif
         if (flag_verbose) {

@@ -71,10 +71,10 @@ InitParticles(const IntVect& a_num_particles_per_cell,
 
         amrex::CheckSeedArraySizeAndResize(tile_box.numPts());
 
-        Gpu::ManagedDeviceVector<unsigned int> counts(tile_box.numPts(), 0);
+        Gpu::ManagedVector<unsigned int> counts(tile_box.numPts(), 0);
         unsigned int* pcount = counts.dataPtr();
         
-        Gpu::ManagedDeviceVector<unsigned int> offsets(tile_box.numPts());
+        Gpu::ManagedVector<unsigned int> offsets(tile_box.numPts());
         unsigned int* poffset = offsets.dataPtr();
         
         amrex::ParallelFor(tile_box,
@@ -108,9 +108,9 @@ InitParticles(const IntVect& a_num_particles_per_cell,
             }
         });
 
-        thrust::exclusive_scan(counts.begin(), counts.end(), offsets.begin());
+        Gpu::inclusive_scan(counts.begin(), counts.end(), offsets.begin());
 
-        int num_to_add = counts[tile_box.numPts()-1] + offsets[tile_box.numPts()-1];
+        int num_to_add = offsets[tile_box.numPts()-1];
 
         auto& particles = GetParticles(lev);
         auto& particle_tile = particles[std::make_pair(mfi.index(), mfi.LocalTileIndex())];
@@ -141,7 +141,7 @@ InitParticles(const IntVect& a_num_particles_per_cell,
             unsigned int uiz = amrex::min(nz-1,amrex::max(0,iz));
             unsigned int cellid = (uix * ny + uiy) * nz + uiz;
 
-            int pidx = poffset[cellid];
+            int pidx = poffset[cellid]-1;
 
             for (int i_part=0; i_part<num_ppc;i_part++)
             {

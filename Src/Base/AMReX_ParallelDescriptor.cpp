@@ -191,7 +191,7 @@ namespace
                         const char* call,
                         int         status)
     {
-	const int N = 512;
+	constexpr int N = 1024;
 	static char buf[N];
 	if ( status )
 	{
@@ -1553,6 +1553,13 @@ ParallelDescriptor::Mpi_typemap<unsigned long>::type ()
     return  MPI_UNSIGNED_LONG;
 }
 
+template <>
+MPI_Datatype
+ParallelDescriptor::Mpi_typemap<unsigned long long>::type ()
+{
+    return  MPI_UNSIGNED_LONG_LONG;
+}
+    
 template <>
 MPI_Datatype
 ParallelDescriptor::Mpi_typemap<float>::type ()

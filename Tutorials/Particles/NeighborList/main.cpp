@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 
     Vector<BoxArray> ba(nlevs);
     ba[0].define(domain);
-    
+
     // Now we make the refined level be the center eighth of the domain
     if (nlevs > 1) {
         IntVect n_fine = size*rr[0];
@@ -89,6 +89,8 @@ int main(int argc, char* argv[])
 
     myPC.InitParticles();
 
+    myPC.setEnableInverse(true);
+
     for (int i = 0; i < max_step; i++) {
 
         amrex::Print() << "Taking step " << i << "\n";
@@ -100,6 +102,13 @@ int main(int argc, char* argv[])
         if (do_nl) { myPC.computeForcesNL(); } 
         else {       myPC.computeForces();   }
 
+        int real_start_comp = 2*BL_SPACEDIM;
+        int real_num_comp = 1;
+
+        int int_start_comp = 0;
+        int int_num_comp = 1;
+        myPC.sumNeighbors(real_start_comp, real_num_comp, int_start_comp, int_num_comp);
+        
         myPC.clearNeighbors();
 
         myPC.moveParticles(dt);

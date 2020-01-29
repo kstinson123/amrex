@@ -178,10 +178,10 @@ AmrLevel::writePlotFile (const std::string& dir,
         int f_lev = parent->finestLevel();
         os << f_lev << '\n';
         for (i = 0; i < BL_SPACEDIM; i++)
-            os << Geometry::ProbLo(i) << ' ';
+            os << Geom().ProbLo(i) << ' ';
         os << '\n';
         for (i = 0; i < BL_SPACEDIM; i++)
-            os << Geometry::ProbHi(i) << ' ';
+            os << Geom().ProbHi(i) << ' ';
         os << '\n';
         for (i = 0; i < f_lev; i++)
             os << parent->refRatio(i)[0] << ' ';
@@ -198,7 +198,7 @@ AmrLevel::writePlotFile (const std::string& dir,
                 os << parent->Geom(i).CellSize()[k] << ' ';
             os << '\n';
         }
-        os << (int) Geometry::Coord() << '\n';
+        os << (int) Geom().Coord() << '\n';
         os << "0\n"; // Write bndry data.
 
     }
@@ -923,7 +923,7 @@ FillPatchIterator::Initialize (int  boxGrow,
 			}
 			std::cout << "WARNING: Grids are not properly nested.  We might have to use\n"
 				  << "         two coarse levels to do fillpatch.  Consider using\n";
-			if (new_blocking_factor < IntVect{D_DECL(128,128,128)}) {
+			if (new_blocking_factor < IntVect{AMREX_D_DECL(128,128,128)}) {
 			    std::cout << "         amr.blocking_factor=" << new_blocking_factor;
 			} else {
 			    std::cout << "         larger amr.blocking_factor. ";
@@ -1299,7 +1299,7 @@ FillPatchIteratorHelper::fill (FArrayBox& fab,
                           fineAmrLevel.geom,
                           bcr,
                           m_scomp,
-                          m_index);
+                          m_index, RunOn::Cpu);
             //
             // Copy intersect finefab into next level m_cboxes.
             //
@@ -1474,7 +1474,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 			   geom,
 			   bcr,
 			   SComp,
-			   idx);
+			   idx, RunOn::Cpu);
 	}
 
 	StateDataPhysBCFunct physbcf(state[idx],SComp,geom);

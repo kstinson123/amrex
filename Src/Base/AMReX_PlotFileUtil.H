@@ -8,6 +8,10 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_PlotFileDataImpl.H>
 
+#ifdef AMREX_USE_HDF5
+#include <hdf5.h>
+#endif
+
 namespace amrex
 {
     //!  return the name of the level directory,  e.g., Level_5
@@ -88,6 +92,43 @@ namespace amrex
                                   const std::string &mfPrefix = "Cell",
                                   const Vector<std::string>& extra_dirs = Vector<std::string>());
 
+#ifdef AMREX_USE_HDF5
+    void WriteGenericPlotfileHeaderHDF5 (hid_t fid,
+                                         int nlevels,
+				         const Vector<BoxArray> &bArray,
+				         const Vector<std::string> &varnames,
+				         const Vector<Geometry> &geom,
+				         Real time,
+				         const Vector<int> &level_steps,
+				         const Vector<IntVect> &ref_ratio,
+				         const std::string &versionName = "HyperCLaw-V1.1",
+				         const std::string &levelPrefix = "Level_",
+				         const std::string &mfPrefix = "Cell");
+
+    void WriteSingleLevelPlotfileHDF5 (const std::string &plotfilename,
+				       const MultiFab &mf,
+				       const Vector<std::string> &varnames,
+				       const Geometry &geom,
+				       Real t,
+				       int level_step,
+                                       const std::string &versionName = "HyperCLaw-V1.1",
+                                       const std::string &levelPrefix = "Level_",
+                                       const std::string &mfPrefix = "Cell",
+                                       const Vector<std::string>& extra_dirs = Vector<std::string>());
+
+    void WriteMultiLevelPlotfileHDF5 (const std::string &plotfilename,
+                                  int nlevels,
+				  const Vector<const MultiFab*> &mf,
+				  const Vector<std::string> &varnames,
+				  const Vector<Geometry> &geom,
+				  Real time,
+				  const Vector<int> &level_steps,
+				  const Vector<IntVect> &ref_ratio,
+                                  const std::string &versionName = "HyperCLaw-V1.1",
+                                  const std::string &levelPrefix = "Level_",
+                                  const std::string &mfPrefix = "Cell",
+                                  const Vector<std::string>& extra_dirs = Vector<std::string>());
+#endif
 
     /**
     * \brief write a plotfile to disk given:
@@ -164,9 +205,9 @@ namespace amrex
 
         const DistributionMapping& DistributionMap (int level) const noexcept { return m_impl->DistributionMap(level); }
 
-        void syncDistributionMap (PlotFileData const& src) { m_impl->syncDistributionMap(*src.m_impl); }
+        void syncDistributionMap (PlotFileData const& src) noexcept { m_impl->syncDistributionMap(*src.m_impl); }
 
-        void syncDistributionMap (int level, PlotFileData const& src) { m_impl->syncDistributionMap(level, *src.m_impl); }
+        void syncDistributionMap (int level, PlotFileData const& src) noexcept { m_impl->syncDistributionMap(level, *src.m_impl); }
 
         int coordSys () const noexcept { return m_impl->coordSys(); }
 

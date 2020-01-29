@@ -20,6 +20,7 @@
 #include <AMReX_Utility.H>
 #include <AMReX_BLassert.H>
 #include <AMReX_BLProfiler.H>
+#include <AMReX_Print.H>
 
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_BoxArray.H>
@@ -359,262 +360,6 @@ amrex::OutOfMemory ()
     amrex::Error("Sorry, out of memory, bye ...");
 }
 
-namespace
-{
-    int nthreads;
-
-    amrex::Vector<std::mt19937> generators;
-
-#ifdef AMREX_USE_CUDA
-    /**
-    * \brief The random seed array is allocated with an extra buffer space to 
-    *        reduce the computational cost of dynamic memory allocation and 
-    *        random seed generation. 
-    */
-    __device__ curandState_t *glo_RandStates;
-    amrex::Gpu::DeviceVector<curandState_t> dev_RandStates_Seed;
-#endif
-
-}
-
-void
-amrex::InitRandom (unsigned long seed, int nprocs)
-{
-
-#ifdef _OPENMP
-    nthreads = omp_get_max_threads();
-#else
-    nthreads = 1;
-#endif
-    generators.resize(nthreads);
-
-#ifdef _OPENMP
-#pragma omp parallel
-    {
-        int tid = omp_get_thread_num();
-        unsigned long init_seed = seed + tid*nprocs;
-        generators[tid].seed(init_seed);
-    }
-#else
-    generators[0].seed(seed);
-#endif
-}
-
-void amrex::ResetRandomSeed(unsigned long seed)
-{
-    InitRandom(seed);
-}
-
-AMREX_GPU_HOST_DEVICE double
-amrex::RandomNormal (double mean, double stddev)
-{
-
-    double rand;
-
-#ifdef __CUDA_ARCH__
-
-    int blockId = blockIdx.x + blockIdx.y * gridDim.x + gridDim.x * gridDim.y * blockIdx.z;
-
-    int tid = blockId * (blockDim.x * blockDim.y * blockDim.z)
-              + (threadIdx.z * (blockDim.x * blockDim.y)) 
-              + (threadIdx.y * blockDim.x) + threadIdx.x ;
-
-    rand = stddev * curand_normal_double(&glo_RandStates[tid]) + mean; 
-
-#else
-
-#ifdef _OPENMP
-    int tid = omp_get_thread_num();
-#else
-    int tid = 0;
-#endif
-    std::normal_distribution<double> distribution(mean, stddev);
-    rand = distribution(generators[tid]);
-
-#endif
-
-    return rand;
-}
-
-AMREX_GPU_HOST_DEVICE double
-amrex::Random ()
-{
-    double rand;
-
-#ifdef __CUDA_ARCH__
-
-    int blockId = blockIdx.x + blockIdx.y * gridDim.x + gridDim.x * gridDim.y * blockIdx.z;
-
-    int tid = blockId * (blockDim.x * blockDim.y * blockDim.z)
-              + (threadIdx.z * (blockDim.x * blockDim.y)) 
-              + (threadIdx.y * blockDim.x) + threadIdx.x ;
-
-    rand = curand_uniform_double(&glo_RandStates[tid]); 
-
-
-#else
-
-#ifdef _OPENMP
-    int tid = omp_get_thread_num();
-#else
-    int tid = 0;
-#endif
-    std::uniform_real_distribution<double> distribution(0.0, 1.0);
-    rand = distribution(generators[tid]);
-
-#endif
-
-    return rand;
-}
-
-
-unsigned long
-amrex::Random_int(unsigned long n)
-{
-#ifdef _OPENMP
-    int tid = omp_get_thread_num();
-#else
-    int tid = 0;
-#endif
-    std::uniform_int_distribution<unsigned long> distribution(0, n-1);
-    return distribution(generators[tid]);
-}
-
-void
-amrex::SaveRandomState(std::ostream& os)
-{
-    for (int i = 0; i < nthreads; i++) {
-        os << generators[i] << "\n";
-    }
-}
-
-void
-amrex::RestoreRandomState(std::istream& is, int nthreads_old, int nstep_old)
-{
-    int N = std::min(nthreads, nthreads_old);
-    for (int i = 0; i < N; i++)
-        is >> generators[i];
-    if (nthreads > nthreads_old) {
-        const int NProcs = ParallelDescriptor::NProcs();
-        const int MyProc = ParallelDescriptor::MyProc();
-        for (int i = nthreads_old; i < nthreads; i++) {
-	    unsigned long seed = MyProc+1 + i*NProcs;
-	    if (ULONG_MAX/(unsigned long)(nstep_old+1) >static_cast<unsigned long>(nthreads*NProcs)) { // avoid overflow
-		seed += nstep_old*nthreads*NProcs;
-	    }
-
-            generators[i].seed(seed);
-        }
-    }
-}
-
-void
-amrex::UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
-                           bool printSet)
-{
-  if(setSize > poolSize) {
-    amrex::Abort("**** Error in UniqueRandomSubset:  setSize > poolSize.");
-  }
-  std::set<int> copySet;
-  Vector<int> uSetTemp;
-  while(static_cast<int>(copySet.size()) < setSize) {
-    int r(amrex::Random_int(poolSize));
-    if(copySet.find(r) == copySet.end()) {
-      copySet.insert(r);
-      uSetTemp.push_back(r);
-    }
-  }
-  uSet = uSetTemp;
-  if(printSet) {
-    for(int i(0); i < uSet.size(); ++i) {
-        amrex::AllPrint() << "uSet[" << i << "]  = " << uSet[i] << std::endl;
-    }
-  }
-}
-
-
-void 
-amrex::InitRandSeedOnDevice (int N)
-{
-  ResizeRandomSeed(N);
-}
-
-void 
-amrex::CheckSeedArraySizeAndResize (int N)
-{
-#ifdef AMREX_USE_CUDA
-  if ( dev_RandStates_Seed.size() < N) {
-     ResizeRandomSeed(N);
-  }
-#endif
-}
-
-void 
-amrex::ResizeRandomSeed (int N)
-{
-
-#ifdef AMREX_USE_CUDA  
-
-  int Nbuffer = N * 2;
-
-  int PrevSize = dev_RandStates_Seed.size();
-
-  const int MyProc = amrex::ParallelDescriptor::MyProc();
-  int SizeDiff = Nbuffer - PrevSize;
-
-  dev_RandStates_Seed.resize(Nbuffer);
-  curandState_t *d_RS_Seed = dev_RandStates_Seed.dataPtr();
-  cudaMemcpyToSymbol(glo_RandStates,&d_RS_Seed,sizeof(curandState_t *));
-
-  AMREX_PARALLEL_FOR_1D (SizeDiff, idx,
-  {
-     unsigned long seed = MyProc*1234567UL + 12345UL ;
-     int seqstart = idx + 10 * idx ; 
-     int loc = idx + PrevSize;
-     curand_init(seed, seqstart, 0, &glo_RandStates[loc]);
-  }); 
-
-#endif
-
-}
-
-void 
-amrex::DeallocateRandomSeedDevArray()
-{
-#ifdef AMREX_USE_CUDA  
-  dev_RandStates_Seed.resize(0);
-  dev_RandStates_Seed.shrink_to_fit();
-#endif
-}
-
-
-
-void
-amrex::NItemsPerBin (int totalItems, Vector<int> &binCounts)
-{
-  if(binCounts.size() == 0) {
-    return;
-  }
-  bool verbose(false);
-  int countForAll(totalItems / binCounts.size());
-  int remainder(totalItems % binCounts.size());
-  if(verbose) {
-      amrex::Print() << "amrex::NItemsPerBin:  countForAll remainder = " << countForAll
-                     << "  " << remainder << std::endl;
-  }
-  for(int i(0); i < binCounts.size(); ++i) {
-    binCounts[i] = countForAll;
-  }
-  for(int i(0); i < remainder; ++i) {
-    ++binCounts[i];
-  }
-  for(int i(0); i < binCounts.size(); ++i) {
-    if(verbose) {
-        amrex::Print() << "amrex::NItemsPerBin::  binCounts[" << i << "] = " << binCounts[i] << std::endl;
-    }
-  }
-}
-
 // -------------------------------------------------------------------
 int amrex::CRRBetweenLevels(int fromlevel, int tolevel,
                             const Vector<int> &refratios)
@@ -628,29 +373,6 @@ int amrex::CRRBetweenLevels(int fromlevel, int tolevel,
   }
   return rr;
 }
-
-//
-// Fortran entry points for amrex::Random().
-//
-
-#ifndef AMREX_XSDK
-BL_FORT_PROC_DECL(BLUTILINITRAND,blutilinitrand)(const int* sd)
-{
-    unsigned long seed = *sd;
-    amrex::InitRandom(seed);
-}
-
-BL_FORT_PROC_DECL(BLINITRAND,blinitrand)(const int* sd)
-{
-    unsigned long seed = *sd;
-    amrex::InitRandom(seed);
-}
-
-BL_FORT_PROC_DECL(BLUTILRAND,blutilrand)(amrex::Real* rn)
-{
-    *rn = amrex::Random();
-}
-#endif
 
 //
 // Lower tail quantile for standard normal distribution function.
@@ -753,22 +475,6 @@ amrex::InvNormDist (double p)
 
     return x;
 }
-
-#ifndef AMREX_XSDK
-BL_FORT_PROC_DECL(BLINVNORMDIST,blinvnormdist)(amrex::Real* result)
-{
-    //
-    // Convert from [0, 1) to (0,1)
-    // 
-    double val = 0.0;
-    while (val == 0.0) {
-        val = amrex::Random();
-    }
-
-    *result = amrex::InvNormDist(val);
-}
-#endif
-
 
 //
 //****************************************************************************80
@@ -922,21 +628,6 @@ amrex::InvNormDistBest (double p)
 
   return value;
 }
-
-#ifndef AMREX_XSDK
-BL_FORT_PROC_DECL(BLINVNORMDISTBEST,blinvnormdistbest)(amrex::Real* result)
-{
-    //
-    // Convert from [0, 1) to (0,1)
-    // 
-    double val = 0.0;
-    while (val == 0.0) {
-        val = amrex::Random();
-    }
-
-    *result = amrex::InvNormDistBest(val);
-}
-#endif
 
 //
 // Sugar for parsing IO
@@ -1368,15 +1059,5 @@ extern "C" {
     void amrex_free (void* p)
     {
         std::free(p);
-    }
-
-    double amrex_random ()
-    {
-        return amrex::Random();
-    }
-
-    long amrex_random_int (long n)  // This is for Fortran, which doesn't have unsigned long.
-    {
-        return static_cast<long>(amrex::Random_int(static_cast<unsigned long>(n)));
     }
 }

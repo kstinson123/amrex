@@ -298,7 +298,6 @@ CNS::errorEst (TagBoxArray& tags, int, int, Real time, int, int)
 
     if (level < refine_max_dengrad_lev)
     {
-        int ng = 1;
         const MultiFab& S_new = get_new_data(State_Type);
         const Real cur_time = state[State_Type].curTime();
         MultiFab rho(S_new.boxArray(), S_new.DistributionMap(), 1, 1);
@@ -415,7 +414,7 @@ CNS::estTimeStep ()
     const MultiFab& S = get_new_data(State_Type);
 
     Real estdt = amrex::ReduceMin(S, 0,
-    [=] AMREX_GPU_HOST_DEVICE (Box const& bx, FArrayBox const& fab) -> Real
+    [=] AMREX_GPU_DEVICE (Box const& bx, FArrayBox const& fab) -> Real
     {
         return cns_estdt(bx, fab, dx);
     });

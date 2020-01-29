@@ -5,6 +5,7 @@
 #include <omp.h>
 #endif
 
+#include <string>
 #include <AMReX_BoxArray.H>
 #include <AMReX_DistributionMapping.H>
 #include <AMReX_ParallelDescriptor.H>
@@ -12,6 +13,7 @@
 #include <AMReX_Periodicity.H>
 #include <AMReX_Print.H>
 #include <AMReX_Arena.H>
+#include <AMReX_Gpu.H>
 
 namespace amrex {
 
@@ -117,6 +119,12 @@ public:
 
     //! Return constant reference to associated DistributionMapping.
     const DistributionMapping& DistributionMap () const noexcept { return distributionMap; }
+
+    // These are provided for convenience to keep track of how many
+    // ghost cells are up to date.  The number of filled ghost cells
+    // is updated by FillBoundary and ParallelCopy.
+    IntVect nGrowFilled () const noexcept { return n_filled; }
+    void setNGrowFilled (IntVect const& ng) noexcept { n_filled = ng; }
 
     //
     struct CacheStats
@@ -386,7 +394,32 @@ public:
                                    Vector<char*>&       send_data,
                                    Vector<MPI_Status>&  stats);
 
-protected:
+    // Memory Usage Tags
+    struct meminfo {
+        long nbytes = 0L;
+        long nbytes_hwm = 0L;
+    };
+    static std::map<std::string, meminfo> m_mem_usage;
+
+    static void updateMemUsage (std::string const& tag, long nbytes, Arena const* ar);
+    static void printMemUsage ();
+    static long queryMemUsage (const std::string& tag = std::string("All"));
+    static long queryMemUsageHWM (const std::string& tag = std::string("All"));
+
+    static void pushRegionTag (const char* t);
+    static void pushRegionTag (std::string t);
+    static void popRegionTag ();
+
+    static std::vector<std::string> m_region_tag;
+    struct RegionTag {
+        RegionTag (const char* t) { pushRegionTag(t); }
+        RegionTag (std::string t) { pushRegionTag(std::move(t)); }
+        ~RegionTag () { popRegionTag(); }
+    };
+
+//#ifndef AMREX_USE_GPU
+//protected:
+//#endif
 
     void clear ();
 
@@ -408,6 +441,7 @@ protected:
     IntVect             n_grow;
     int                 n_comp;
     mutable BDKey       m_bdkey;
+    IntVect             n_filled;  // Note that IntVect is zero by default.
 
     //
     // Tiling
@@ -426,9 +460,20 @@ protected:
 			 bool no_assertion=false) const;
     static void flushTileArrayCache (); //!< This flushes the entire cache.
 
+    struct CommMetaData
+    {
+        // The cache of local and send/recv per FillBoundary() or ParallelCopy().
+	bool m_threadsafe_loc = false;
+	bool m_threadsafe_rcv = false;
+        std::unique_ptr<CopyComTagsContainer>      m_LocTags;
+        std::unique_ptr<MapOfCopyComTagContainers> m_SndTags;
+        std::unique_ptr<MapOfCopyComTagContainers> m_RcvTags;
+    };
+
     //
     //! FillBoundary
     struct FB
+        : CommMetaData
     {
         FB (const FabArrayBase& fa, const IntVect& nghost,
             bool cross, const Periodicity& period,
@@ -441,17 +486,15 @@ protected:
         bool         m_cross;
 	bool         m_epo;
 	Periodicity  m_period;
-        //
-        // The cache of local and send/recv per FillBoundary().
-        //
-	bool                m_threadsafe_loc;
-	bool                m_threadsafe_rcv;
-        CopyComTagsContainer*      m_LocTags;
-        MapOfCopyComTagContainers* m_SndTags;
-        MapOfCopyComTagContainers* m_RcvTags;
 	//
 	int                 m_nuse;
 	//
+#if ( defined(__CUDACC__) && (__CUDACC_VER_MAJOR__ >= 10) )
+        CudaGraph<CopyMemory> m_localCopy;
+        CudaGraph<CopyMemory> m_copyToBuffer;
+        CudaGraph<CopyMemory> m_copyFromBuffer;
+#endif
+        //
 	long bytes () const;
     private:
 	void define_fb (const FabArrayBase& fa);
@@ -472,10 +515,8 @@ protected:
 
     //
     //! parallel copy or add
-#ifdef AMREX_USE_CUDA
-public:
-#endif
     struct CPC
+        : CommMetaData
     {
 	CPC (const FabArrayBase& dstfa, const IntVect& dstng,
 	     const FabArrayBase& srcfa, const IntVect& srcng,
@@ -498,14 +539,6 @@ public:
 	Periodicity m_period;
 	BoxArray    m_srcba;
 	BoxArray    m_dstba;
-        //
-        // The cache of local and send/recv info per FabArray::copy().
-        //
-	bool        m_threadsafe_loc;
-	bool        m_threadsafe_rcv;
-        CopyComTagsContainer*      m_LocTags;
-        MapOfCopyComTagContainers* m_SndTags;
-        MapOfCopyComTagContainers* m_RcvTags;
 	//
         int         m_nuse;
 
@@ -516,9 +549,7 @@ public:
 		     const Vector<int>& imap_src,
 		     int MyProc = ParallelDescriptor::MyProc());
     };
-#ifdef AMREX_USE_CUDA
-protected:
-#endif
+
     //
     typedef std::multimap<BDKey,FabArrayBase::CPC*> CPCache;
     typedef CPCache::iterator CPCacheIter;

@@ -44,7 +44,13 @@ endif
 
 ########################################################################
 
-CXXFLAGS += -std=c++11
+ifdef CXXSTD
+  CXXSTD := $(strip $(CXXSTD))
+else
+  CXXSTD := c++11
+endif
+
+CXXFLAGS += -std=$(CXXSTD)
 CFLAGS   += -std=c99
 
 FMODULES = -J$(fmoddir) -I $(fmoddir)
@@ -52,6 +58,12 @@ FMODULES = -J$(fmoddir) -I $(fmoddir)
 ########################################################################
 
 GENERIC_COMP_FLAGS =
+
+ifeq ($(EXPORT_DYNAMIC),TRUE)
+  CPPFLAGS += -DAMREX_EXPORT_DYNAMIC
+  LIBRARIES += -Xlinker -export_dynamic
+  GENERIC_COMP_FLAGS += -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer
+endif
 
 ifeq ($(THREAD_SANITIZER),TRUE)
   GENERIC_COMP_FLAGS += -fsanitize=thread

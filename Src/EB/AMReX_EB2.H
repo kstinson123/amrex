@@ -15,7 +15,6 @@
 namespace amrex { namespace EB2 {
 
 extern int max_grid_size;
-extern bool compare_with_ch_eb;
 
 void useEB2 (bool);
 
@@ -43,6 +42,7 @@ public:
     static int size () noexcept { return m_instance.size(); }
 
     virtual const Level& getLevel (const Geometry & geom) const = 0;
+    virtual const Geometry& getGeometry (const Box& domain) const = 0;
     virtual const Box& coarsestDomain () const = 0;
 
 protected:
@@ -69,6 +69,7 @@ public:
     virtual ~IndexSpaceImp () {}
 
     virtual const Level& getLevel (const Geometry& geom) const final;
+    virtual const Geometry& getGeometry (const Box& dom) const final;
     virtual const Box& coarsestDomain () const final {
         return m_geom.back().Domain();
     }

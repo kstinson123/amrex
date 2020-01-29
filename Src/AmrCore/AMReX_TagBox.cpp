@@ -13,24 +13,28 @@ namespace amrex {
 
 TagBox::TagBox () noexcept {}
 
-TagBox::TagBox (const Box& bx,
-                int        n,
-                bool       alloc,
-		bool       shared)
-    :
-    BaseFab<TagBox::TagType>(bx,n,alloc,shared)
+TagBox::TagBox (Arena* ar) noexcept
+    : BaseFab<TagBox::TagType>(ar)
+{}
+
+TagBox::TagBox (const Box& bx, int n, Arena* ar)
+    : BaseFab<TagBox::TagType>(bx,n,ar)
+{
+    setVal(TagBox::CLEAR);
+}
+
+TagBox::TagBox (const Box& bx, int n, bool alloc, bool shared, Arena* ar)
+    : BaseFab<TagBox::TagType>(bx,n,alloc,shared,ar)
 {
     if (alloc) setVal(TagBox::CLEAR);
 }
 
 TagBox::TagBox (const TagBox& rhs, MakeType make_type, int scomp, int ncomp)
-    :
-    BaseFab<TagBox::TagType>(rhs,make_type,scomp,ncomp)
-{
-}
+    : BaseFab<TagBox::TagType>(rhs,make_type,scomp,ncomp)
+{}
 
 void
-TagBox::coarsen (const IntVect& ratio, bool owner) noexcept
+TagBox::coarsen (const IntVect& ratio) noexcept
 {
     BL_ASSERT(nComp() == 1);
 
@@ -46,10 +50,6 @@ TagBox::coarsen (const IntVect& ratio, bool owner) noexcept
 
     this->nvar = 1;
     this->domain = cbox;
-
-    if (!owner) {
-        return;
-    }
 
     const int* clo      = cbox.loVect();
     IntVect    cbox_len = cbox.size();
@@ -458,6 +458,8 @@ TagBoxArray::borderSize () const noexcept
 void 
 TagBoxArray::buffer (const IntVect& nbuf)
 {
+    Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
+
     AMREX_ASSERT(nbuf.allLE(n_grow));
 
     if (nbuf.max() > 0)
@@ -485,6 +487,8 @@ TagBoxArray::mapPeriodic (const Geometry& geom)
 
     tmp.copy(*this, geom.periodicity(), FabArrayBase::ADD);
 
+    Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -498,6 +502,8 @@ long
 TagBoxArray::numTags () const
 {
     long ntag = 0;
+
+    Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
 
 #ifdef _OPENMP
 #pragma omp parallel reduction(+:ntag)
@@ -516,6 +522,8 @@ void
 TagBoxArray::collate (Vector<IntVect>& TheGlobalCollateSpace) const
 {
     BL_PROFILE("TagBoxArray::collate()");
+
+    // Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
 
     long count = 0;
 
@@ -630,6 +638,8 @@ void
 TagBoxArray::setVal (const BoxArray& ba,
                      TagBox::TagVal  val)
 {
+    Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -655,15 +665,14 @@ TagBoxArray::coarsen (const IntVect & ratio)
     int teamsize = ParallelDescriptor::TeamSize();
     unsigned char flags = (teamsize == 1) ? 0 : MFIter::AllBoxes;
 
+    Gpu::LaunchSafeGuard lsg(false); // xxxxx TODO: gpu
+
 #if defined(_OPENMP)
 #pragma omp parallel if (teamsize == 1)
 #endif
     for (MFIter mfi(*this,flags); mfi.isValid(); ++mfi)
     {
-        this->fabHostPtr(mfi)->coarsen(ratio,isOwner(mfi.LocalIndex()));
-#ifdef AMREX_USE_GPU
-        this->fabDevicePtr(mfi)->coarsen(ratio,false);
-#endif
+        this->fabPtr(mfi)->coarsen(ratio);
     }
 
     boxarray.growcoarsen(n_grow,ratio);
