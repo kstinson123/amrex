@@ -558,13 +558,11 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
              {
                  
                  if(Lord == 222){
-                     abec_gsrb(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
-                           afab, bxfab, byfab,
-                           f0fab, m0,
-                           f1fab, m1,
-                           f2fab, m2,
-                           f3fab, m3,
-                           vbx, nc, redblack);
+                   abec_gsrb(thread_box, solnfab, rhsfab, alpha, afab, dhx, dhy,
+                             bxfab, byfab,
+                             m0, m2, m1, m3,
+                             f0fab, f2fab, f1fab, f3fab,
+                             vbx, redblack, nc);
                  }
                  else if (Lord == 444){
                      abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
