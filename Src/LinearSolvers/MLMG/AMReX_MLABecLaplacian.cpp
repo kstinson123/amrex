@@ -14,7 +14,7 @@ MLABecLaplacian::MLABecLaplacian (const Vector<Geometry>& a_geom,
                                   const LPInfo& a_info,
                                   const Vector<FabFactory<FArrayBox> const*>& a_factory)
 {
-    define(a_geom, a_grids, a_dmap, a_info, a_factory);
+  define(a_geom, a_grids, a_dmap,  a_info, a_factory);
 }
 
 void
@@ -33,11 +33,14 @@ MLABecLaplacian::define (const Vector<Geometry>& a_geom,
     ParmParse pp;
     m_relaxation_parameter = 1.0;
     pp.query("relaxation_parameter",m_relaxation_parameter);
+    m_Lord=222;
+    pp.query("MGord",m_Lord);
 
     m_a_coeffs.resize(m_num_amr_levels);
     m_b_coeffs.resize(m_num_amr_levels);
     m_bcc.resize(m_num_amr_levels);
-    int nGrowLord = (Lord ==222) ? 1:2;
+
+    int nGrowLord = (m_Lord ==222) ? 1:2;
     for (int amrlev = 0; amrlev < m_num_amr_levels; ++amrlev)
     {
         m_a_coeffs[amrlev].resize(m_num_mg_levels[amrlev]);
@@ -302,7 +305,7 @@ MLABecLaplacian::Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& i
         AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
         {
             mlabeclap_adotx(tbx, yfab, xfab, afab, AMREX_D_DECL(bxfab,byfab,bzfab),
-                            dxinv, ascalar, bscalar, ncomp, Lord);
+                            dxinv, ascalar, bscalar, ncomp, m_Lord);
         });
     }
 }
@@ -557,14 +560,14 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
             AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
              {
                  
-                 if(Lord == 222){
+                 if(m_Lord == 222){
                    abec_gsrb(thread_box, solnfab, rhsfab, alpha, afab, dhx, dhy,
                              bxfab, byfab,
                              m0, m2, m1, m3,
                              f0fab, f2fab, f1fab, f3fab,
                              vbx, redblack, nc);
                  }
-                 else if (Lord == 444){
+                 else if (m_Lord == 444){
                      abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
                                afab, bxfab, byfab,
                                m0, m1, m2, m3,

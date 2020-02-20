@@ -246,7 +246,7 @@ void main_main ()
   // order of stencil
   int linop_maxorder = MGord/111; // Change this?
   mlabec.setMaxOrder(linop_maxorder);
-  mlabec.setLord(MGord);
+  //  mlabec.setLord(MGord);  // Now passed into constructor
   
   // build array of boundary conditions needed by MLABecLaplacian
   // see Src/Boundary/AMReX_LO_BCTYPES.H for supported types

@@ -356,8 +356,8 @@ void SDC_fcomp(MultiFab& rhs,
             MultiFab::Saxpy(resid,1.0,rhs,0,0,1,0);
             MultiFab::Saxpy(resid,-1.0,SDC.sol[sdc_m],0,0,1,0);
             
-            //corrnorm=eval_storage.norm0();
-            //amrex::Print() << "iter " << resk << ",  Diffusion operator norm " << corrnorm << "\n";
+            corrnorm=eval_storage.norm0();
+            amrex::Print() << "iter " << resk << ",  Diffusion operator norm " << corrnorm << "\n";
             
             resnorm=resid.norm0();
 	    if(resnorm <= tol_res){
