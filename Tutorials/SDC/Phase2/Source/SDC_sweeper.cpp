@@ -15,7 +15,7 @@ void SDC_advance(MultiFab& phi_old,
 		 const Geometry& geom,
 		 const Vector<BCRec>& bc,
 		 MLMG&  mlmg,
-		 Kerrek& mlabec,
+		 MLABecLaplacian& mlabec,
 		 SDCstruct &SDC, Real a, Real d, Real r,
          std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
 		 std::array<MultiFab,AMREX_SPACEDIM>& prod_stor, Real time, Real epsilon, Real k_freq, Real kappa, MultiFab& bdry_values, int Nprob,int Lord,int &totV)
@@ -72,8 +72,7 @@ void SDC_advance(MultiFab& phi_old,
   //  Compute the first function value (Need boundary filled here at current time explicit).
   int sdc_m=0;
   SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_m,-1,time, epsilon, k_freq, kappa, Nprob,Lord);
-    
-    
+
   // Copy first function value to all nodes
   for (int sdc_n = 1; sdc_n < SDC.Nnodes; sdc_n++)
     {
@@ -216,7 +215,6 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
 
     
     
-    
   for ( MFIter mfi(SDC.sol[sdc_m]); mfi.isValid(); ++mfi )
     {
       const Box& bx = mfi.validbox();
@@ -247,7 +245,7 @@ void SDC_fcomp(MultiFab& rhs,
 	       const Vector<BCRec>& bc,
 	       SDCstruct &SDC,
 	       MLMG &mlmg,
-	       Kerrek& mlabec,	      
+	       MLABecLaplacian& mlabec,	      
 	       Real dt,Real a,Real d,Real r,
            std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab,AMREX_SPACEDIM>& prod_stor,
@@ -266,8 +264,10 @@ void SDC_fcomp(MultiFab& rhs,
   Real t;
     
     // relative and absolute tolerances for linear solve
-  const Real tol_rel = 1.0e-10;
-  const Real tol_abs = 0;
+  //const Real tol_rel = 1.0e-10;
+  const Real tol_rel = 1.0e-12;
+  //const Real tol_abs = 0;
+  const Real tol_abs = 1.0e-12;
   const Real tol_res = 1.e-10;    // Tolerance on residual
   Real resnorm = 1.e10;    // Tolerance on residual
     Real zeroReal = 0.0;
@@ -317,7 +317,7 @@ void SDC_fcomp(MultiFab& rhs,
 
         int resk=0;   //  Initialize residual loop counter
 
-	int maxresk = 10;  //  Set max residual loops
+	int maxresk = 50;  //  Set max residual loops
         pp.query("maxresk",maxresk);
 
         int numGS=10;     //  Set number of GS iterations (out dated)
@@ -356,10 +356,11 @@ void SDC_fcomp(MultiFab& rhs,
             MultiFab::Saxpy(resid,1.0,rhs,0,0,1,0);
             MultiFab::Saxpy(resid,-1.0,SDC.sol[sdc_m],0,0,1,0);
             
-            corrnorm=eval_storage.norm0();
-            amrex::Print() << "iter " << resk << ",  Diffusion operator norm " << corrnorm << "\n";
+            //corrnorm=eval_storage.norm0();
+            //amrex::Print() << "iter " << resk << ",  Diffusion operator norm " << corrnorm << "\n";
             
             resnorm=resid.norm0();
+
 	    if(resnorm <= tol_res){
 	      amrex::Print() << "Reached tolerance: resk iter " << resk << ",  residual norm " << resnorm << "\n";
 	      break;

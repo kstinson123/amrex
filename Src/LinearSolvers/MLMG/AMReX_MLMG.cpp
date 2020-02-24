@@ -176,7 +176,7 @@ MLMG::solve (const Vector<MultiFab*>& a_sol, const Vector<MultiFab const*>& a_rh
         }
         timer[iter_time] = amrex::second() - iter_start_time;
     }
-    // Lord needed here somehow
+
     int ng_back = (final_fill_bc || (Lord==444)) ? 1 : 0; //was 1
     for (int alev = 0; alev < namrlevs; ++alev)
     {
@@ -279,9 +279,9 @@ MLMG::computeMLResidual (int amrlevmax)
     const int mglev = 0;
     for (int alev = amrlevmax; alev >= 0; --alev) {
         const MultiFab* crse_bcdata = (alev > 0) ? sol[alev-1] : nullptr;
-        
+
         linop.solutionResidual(alev, res[alev][mglev], *sol[alev], rhs[alev], crse_bcdata);
-        
+
         if (alev < finest_amr_lev) {
             linop.reflux(alev, res[alev][mglev], *sol[alev], rhs[alev],
                          res[alev+1][mglev], *sol[alev+1], rhs[alev+1]);
@@ -294,7 +294,6 @@ void
 MLMG::computeResidual (int alev)
 {
     BL_PROFILE("MLMG::computeResidual()");
-
     MultiFab& x = *sol[alev];
     const MultiFab& b = rhs[alev];
     MultiFab& r = res[alev][0];

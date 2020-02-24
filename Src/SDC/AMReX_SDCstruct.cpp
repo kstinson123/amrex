@@ -138,13 +138,12 @@ void SDCstruct::SDC_rhs_integrals_high(Real dt)
     }
 }
 
-
 void SDCstruct::SDC_rhs_k_plus_one(MultiFab& sol_new, Real dt,int sdc_m)
 {
   //  Compute the rhs terms for the implicit solve
   Real qij;
   
-  //  Copy first the initial value
+ //  Copy first the initial value
   MultiFab::Copy(sol_new,sol[0], 0, 0, 1, 0);
   for ( MFIter mfi(sol_new); mfi.isValid(); ++mfi )
     {

@@ -93,8 +93,6 @@ public:
     static Counters perf_counters;
 #endif
     // Used for BC
-    void setCellLord (int o) noexcept { cellLord = o; }
-    
     virtual bool isCrossStencil () const { return true; }
     virtual bool isTensorOp () const { return false; }
 
@@ -157,7 +155,7 @@ protected:
 
     Vector<std::unique_ptr<MLMGBndry> > m_bndry_cor;
     Vector<std::unique_ptr<BndryRegister> > m_crse_cor_br;
-    int cellLord = 444;
+    int m_opOrder;
 
     // In case of agglomeration, coarse MG grids on amr level 0 are
     // not simply coarsened from fine MG grids.  So we need to build

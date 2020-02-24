@@ -3,6 +3,7 @@
 #include <AMReX_MLLinOp_K.H>
 #include <AMReX_MLLinOp_F.H>
 #include <AMReX_MultiFabUtil.H>
+#include <AMReX_ParmParse.H>
 
 namespace amrex {
 
@@ -20,6 +21,11 @@ MLCellLinOp::define (const Vector<Geometry>& a_geom,
                      const LPInfo& a_info,
                      const Vector<FabFactory<FArrayBox> const*>& a_factory)
 {
+    m_opOrder = 222;
+    ParmParse pp("linop");
+    pp.query("opOrder",m_opOrder);
+    AMREX_ALWAYS_ASSERT(m_opOrder==222 || m_opOrder==244);
+    
     MLLinOp::define(a_geom, a_grids, a_dmap, a_info, a_factory);
     defineAuxData();
     defineBC();
@@ -56,8 +62,8 @@ MLCellLinOp::defineAuxData ()
             {
                 const Orientation face = oitr();
                 
-                const int ngrow = (cellLord==222) ? 1:2; // 1 or 2 Need Lord
-                const int extent = (isCrossStencil() || (cellLord==444)) ? 0 : 1; // extend to corners // was hard set to 0 for 444 (seems like 1 would make more sense)
+                const int ngrow = (m_opOrder==222) ? 1 : 2; // 1 or 2 Need Lord
+                const int extent = (isCrossStencil() || (m_opOrder==244)) ? 0 : 1; // extend to corners
                 m_maskvals[amrlev][mglev][face].define(m_grids[amrlev][mglev],
                                                        m_dmap[amrlev][mglev],
                                                        m_geom[amrlev][mglev],
@@ -336,47 +342,51 @@ MLCellLinOp::apply (int amrlev, int mglev, MultiFab& out, MultiFab& in, BCMode b
 #endif
     Fapply(amrlev, mglev, out, in);
 }
-/* Remove redblack
+    
 void
 MLCellLinOp::smooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs,
                      bool skip_fillboundary) const
 {
     BL_PROFILE("MLCellLinOp::smooth()");
-    for (int redblack = 0; redblack < 2; ++redblack)
+
+    if (m_opOrder == 222)
     {
+        for (int redblack = 0; redblack < 2; ++redblack)
+        {
+            applyBC(amrlev, mglev, sol, BCMode::Homogeneous, StateMode::Solution,
+                    nullptr, skip_fillboundary);
+
+#ifdef AMREX_SOFT_PERF_COUNTERS
+            perf_counters.smooth(sol);
+#endif
+
+            Fsmooth(amrlev, mglev, sol, rhs, redblack);
+            skip_fillboundary = false;
+        }
+    }
+    else
+    {
+        // Redblack doesn't make sense with 4th order scheme.
+        int redblack = 0;
         applyBC(amrlev, mglev, sol, BCMode::Homogeneous, StateMode::Solution,
                 nullptr, skip_fillboundary);
+        
 #ifdef AMREX_SOFT_PERF_COUNTERS
         perf_counters.smooth(sol);
 #endif
         Fsmooth(amrlev, mglev, sol, rhs, redblack);
+
+        // Make temp multifab so sol has 2 ghost cells.
+        /*  BoxArray ba = sol.boxArray();
+            DistributionMapping dm(ba);
+            MultiFab temp_sol(ba, dm, 1, 2);
+            MultiFab::Copy(temp_sol, sol, 0, 0, 1, 0);
+            temp_sol.FillBoundary(m_geom[amrlev][mglev].periodicity());
+            Fsmooth(amrlev, mglev, temp_sol, rhs, redblack);
+            MultiFab::Copy(sol, temp_sol, 0, 0, 1, 1);
+        */
         skip_fillboundary = false;
     }
-}
- */
-    void
-MLCellLinOp::smooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs,
-                     bool skip_fillboundary) const
-{
-    BL_PROFILE("MLCellLinOp::smooth()");
-    // Redblack doesn't make sense with 4th order scheme. Can bring back RB with Lord.
-    int redblack = 0;
-        applyBC(amrlev, mglev, sol, BCMode::Homogeneous, StateMode::Solution,
-                nullptr, skip_fillboundary);
-#ifdef AMREX_SOFT_PERF_COUNTERS
-        perf_counters.smooth(sol);
-#endif
-    Fsmooth(amrlev, mglev, sol, rhs, redblack);
-        // Make temp multifab so sol has 2 ghost cells.
-      /*  BoxArray ba = sol.boxArray();
-        DistributionMapping dm(ba);
-        MultiFab temp_sol(ba, dm, 1, 2);
-        MultiFab::Copy(temp_sol, sol, 0, 0, 1, 0);
-        temp_sol.FillBoundary(m_geom[amrlev][mglev].periodicity());
-        Fsmooth(amrlev, mglev, temp_sol, rhs, redblack);
-        MultiFab::Copy(sol, temp_sol, 0, 0, 1, 1);*/
-        skip_fillboundary = false;
-    
 }
 
 void
@@ -465,7 +475,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
     BL_ASSERT(bndry != nullptr || bc_mode == BCMode::Homogeneous);
 
     const int ncomp = getNComp();
-    const int cross = (isCrossStencil() && (cellLord==222)); // hard set to 0 for 444
+    const int cross = (isCrossStencil() || (m_opOrder==244));
     const int tensorop = isTensorOp();
     if (!skip_fillboundary) {
         in.FillBoundary(0, ncomp, m_geom[amrlev][mglev].periodicity(),cross);
@@ -576,7 +586,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                 Real bcl = bdl[ori];
                 int  bct = bdc[ori];
 
-                foofab.setVal(10.0);
+                foofab.setVal(10.0); // Remove?
                 const FArrayBox& fsfab = (bndry != nullptr) ? bndry->bndryValues(ori)[mfi] : foofab;
 
                 const Mask& m = maskvals[ori][mfi];
@@ -586,11 +596,10 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        BL_TO_FORTRAN_ANYD(m),
                                        cdr, bct, bcl,
                                        BL_TO_FORTRAN_ANYD(fsfab),
-                                       maxorder, dxinv, flagbc, ncomp, cross, cellLord);
+                                       maxorder, dxinv, flagbc, ncomp, cross, m_opOrder);
             }
           
-            // Needs Lord
-            if(cellLord==444){
+            if(m_opOrder==244){
                 for (OrientationIter oitr; oitr; ++oitr)
                 {
                     const Orientation ori = oitr();
@@ -599,7 +608,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                     Real bcl = bdl[ori];
                     int  bct = bdc[ori];
                     
-                    foofab.setVal(10.0);
+                    foofab.setVal(10.0); // Remove?
                     const FArrayBox& fsfab = (bndry != nullptr) ? bndry->bndryValues(ori)[mfi] : foofab;
                     
                     const Mask& m = maskvals[ori][mfi];
@@ -609,7 +618,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                            BL_TO_FORTRAN_ANYD(m),
                                            cdr, bct, bcl,
                                            BL_TO_FORTRAN_ANYD(fsfab),
-                                           maxorder, dxinv, flagbc, ncomp, cross, cellLord);
+                                           maxorder, dxinv, flagbc, ncomp, cross, m_opOrder);
                 }
             }
         }
@@ -619,13 +628,10 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
 void
 MLCellLinOp::fourthOrderBCFill (MultiFab& in, MultiFab& bdry_values)
 {
-  Abort("should not be here in fourthOrderBCFill");
     BL_PROFILE("MLCellLinOp::fourthOrderBCFill()");
     MLCellLinOp::setLevelBC(0, &bdry_values);
     MLCellLinOp::applyBC (0,0, in, BCMode::Inhomogeneous, StateMode::Solution,
              m_bndry_sol[0].get(), 0);
-    
-    
 }
     
 void

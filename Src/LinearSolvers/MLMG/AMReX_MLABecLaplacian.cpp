@@ -33,14 +33,12 @@ MLABecLaplacian::define (const Vector<Geometry>& a_geom,
     ParmParse pp;
     m_relaxation_parameter = 1.0;
     pp.query("relaxation_parameter",m_relaxation_parameter);
-    m_Lord=222;
-    pp.query("MGord",m_Lord);
 
     m_a_coeffs.resize(m_num_amr_levels);
     m_b_coeffs.resize(m_num_amr_levels);
     m_bcc.resize(m_num_amr_levels);
 
-    int nGrowLord = (m_Lord ==222) ? 1:2;
+    int nGrow = (m_opOrder ==222) ? 1 : 2;
     for (int amrlev = 0; amrlev < m_num_amr_levels; ++amrlev)
     {
         m_a_coeffs[amrlev].resize(m_num_mg_levels[amrlev]);
@@ -52,11 +50,9 @@ MLABecLaplacian::define (const Vector<Geometry>& a_geom,
                                              m_dmap[amrlev][mglev],
                                              1, 0, MFInfo(), *m_factory[amrlev][mglev]);
 
-	    // Ghost cells are hardwired to 2 Need Lord? second 1->2
-            
 	    m_bcc[amrlev][mglev].define(m_grids[amrlev][mglev],
                                              m_dmap[amrlev][mglev],
-                                             1, nGrowLord, MFInfo(), *m_factory[amrlev][mglev]);
+                                             1, nGrow, MFInfo(), *m_factory[amrlev][mglev]);
    
             for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
             {
@@ -305,7 +301,7 @@ MLABecLaplacian::Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& i
         AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
         {
             mlabeclap_adotx(tbx, yfab, xfab, afab, AMREX_D_DECL(bxfab,byfab,bzfab),
-                            dxinv, ascalar, bscalar, ncomp, m_Lord);
+                            dxinv, ascalar, bscalar, ncomp, m_opOrder);
         });
     }
 }
@@ -560,14 +556,14 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
             AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
              {
                  
-                 if(m_Lord == 222){
+                 if(m_opOrder == 222){
                    abec_gsrb(thread_box, solnfab, rhsfab, alpha, afab, dhx, dhy,
                              bxfab, byfab,
                              m0, m2, m1, m3,
                              f0fab, f2fab, f1fab, f3fab,
                              vbx, redblack, nc);
                  }
-                 else if (m_Lord == 444){
+                 else if (m_opOrder == 244){
                      abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
                                afab, bxfab, byfab,
                                m0, m1, m2, m3,

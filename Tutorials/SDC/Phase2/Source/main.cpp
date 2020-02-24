@@ -67,12 +67,10 @@ void main_main ()
     pp.query("Nprob",Nprob);
     int Lord=444;
     pp.query("Lord",Lord);
-    int MGord=444;
-    pp.query("MGord",MGord);
     
     // Manufactured solution parameters
     Real k_freq =3.14159265358979323846;
-    Real epsilon = 0.25;//0.25;//0.25;
+    Real epsilon = 0.5;//0.25;//0.25;
     Real kappa = 2.0*d*pow(k_freq,2.0); // This choice leads to cancellation analytically. Doesn't matter now.
     
     
@@ -241,12 +239,10 @@ void main_main ()
   LPInfo info;
   
   // Implicit solve using MLABecLaplacian class
-  //  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
-  Kerrek mlabec({geom}, {ba}, {dm}, info);
+  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
   // order of stencil
-  int linop_maxorder = MGord/111; // Change this?
+  int linop_maxorder = 4;
   mlabec.setMaxOrder(linop_maxorder);
-  //  mlabec.setLord(MGord);  // Now passed into constructor
   
   // build array of boundary conditions needed by MLABecLaplacian
   // see Src/Boundary/AMReX_LO_BCTYPES.H for supported types

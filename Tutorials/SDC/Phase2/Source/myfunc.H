@@ -8,36 +8,6 @@
 #include <AMReX_MLMG.H>
 #include <AMReX_MLABecLaplacian.H>
 
-
-class Kerrek
-  : public MLABecLaplacian 
-
-{ public:
-  Kerrek():MLABecLaplacian () {}
-  Kerrek(const Vector<Geometry>& a_geom,
-	  const Vector<BoxArray>& a_grids,
-	  const Vector<DistributionMapping>& a_dmap,
-	  const LPInfo& a_info = LPInfo(),
-	  const Vector<FabFactory<FArrayBox> const*>& a_factory = {}):MLABecLaplacian (a_geom,a_grids,a_dmap,a_info,a_factory) {}
-  virtual ~Kerrek(){}
-  
-    
-    
-  void fourthOrderBCFill (MultiFab& in, MultiFab& bdry_values)
-  {
-
-    BL_PROFILE("MLCellLinOp::fourthOrderBCFill()");
-    MLCellLinOp::setLevelBC(0, &bdry_values);
-    MLCellLinOp::applyBC (0,0, in, BCMode::Inhomogeneous, StateMode::Solution,
-			  m_bndry_sol[0].get(), 0);
-    
-  }
-    
-    
-    
-};
-// #include <AMReX_LO_BCTYPES.H>
-
 using namespace amrex;
 
 void main_main ();
@@ -49,7 +19,7 @@ void SDC_advance (MultiFab& phi_old,
 		  const Geometry& geom, 
 		  const Vector<BCRec>& bc,
         	  MLMG&  mlmg,
-		  Kerrek& mlabec,
+		  MLABecLaplacian& mlabec,
 		  SDCstruct &sdcmats,Real a,Real d,Real r,
           std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
           std::array<MultiFab,AMREX_SPACEDIM>& prod_stor,
@@ -82,7 +52,7 @@ void SDC_fcomp(MultiFab& rhs,
 	       const Vector<BCRec>& bc,
 	       SDCstruct &sdcmats,
 	       MLMG &mlmg,
-	       Kerrek& mlabec,
+	       MLABecLaplacian& mlabec,
 	       Real dt,Real a, Real d,Real r,
            std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab,AMREX_SPACEDIM>& prod_stor,
