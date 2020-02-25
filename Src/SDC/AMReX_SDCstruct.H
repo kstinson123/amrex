@@ -26,29 +26,29 @@ class SDCstruct
  {
 
  public:
-   Real* qnodes;      //!< The quadrature nodes
-   int*  Nflags;      //!< Flags for quadrature rules
+   Real* qnodes;         // The quadrature nodes
+   int*  Nflags;         // Flags for quadrature rules
 
-   int Nnodes;         //!< Number of quadrature nodes
-   int qtype=1;        //!< Type of quadrature nodes
-   int Nsweeps=8;      //!< Number of sweeps per time step
-   int Npieces;        //!< Number of terms in RHS
-
+   int Nnodes;           // Number of quadrature nodes
+   int qtype=1;          // Type of quadrature nodes
+   int Nsweeps=8;        // Number of sweeps per time step
+   int Npieces;          // Number of terms in RHS
+   amrex_real max_residual; //  Maximum of the residual over the nodes
 
    // The quadrature matrices
    Real* Qall;
-   Vector<Vector<Real>> Qgauss;     //!< Gauss collocation
-   Vector<Vector<Real>> Qexp;       //!< Explicit
-   Vector<Vector<Real>> Qimp;       //!< Implicit
-   Vector<Vector<Real>> QLU;        //!< DIRK with LU trick
+   Vector<Vector<Real>> Qgauss;     // Gauss collocation
+   Vector<Vector<Real>> Qexp;       // Explicit
+   Vector<Vector<Real>> Qimp;       // Implicit
+   Vector<Vector<Real>> QLU;        // DIRK with LU trick
 
 
    // SDC storage
-   Vector<MultiFab> sol;           //!< Solution at the nodes
-   Vector<Vector<MultiFab> > f;    //!< Functions a nodes access by [npieces][node]
-   Vector<MultiFab> fhigh;    //!< 2nd order Diffusion evaluation. Functions a nodes access by [node].
-   Vector<MultiFab> res;           //!< Temp storage
-   Vector<MultiFab> Ithree;        //!< Integration piece for MISDC
+   Vector<MultiFab> sol;           // Solution at the nodes
+   Vector<Vector<MultiFab> > f;    // Functions a nodes access by [npieces][node]
+   Vector<MultiFab> tmp;           // Temp storage
+   Vector<MultiFab> Ithree;        // Integration piece for MISDC
+   Vector<MultiFab> residual;      // Residiual at the nodes
 
 
    /**
@@ -62,11 +62,11 @@ class SDCstruct
 
    //  Sweeper routines
    void SDC_rhs_integrals(Real dt);
-   void SDC_rhs_integrals_high(Real dt);
 
    void SDC_rhs_k_plus_one(MultiFab& rhs, Real dt,int m);
 
    void SDC_rhs_misdc(MultiFab& rhs, Real dt,int m);
+   void SDC_comp_residual(Real dt);   
 
  };
 

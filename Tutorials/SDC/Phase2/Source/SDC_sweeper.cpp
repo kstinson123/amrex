@@ -63,7 +63,7 @@ void SDC_advance(MultiFab& phi_old,
 
   /*  for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
     {          const Box& bx = mfi.validbox();
-        
+       
         print_multifab(BL_TO_FORTRAN_ANYD(SDC.sol[0][mfi]));
     }*/
     // Fill non-periodic physical boundaries (doesn't do Dirichlet; probably only one ghost cell).
@@ -166,8 +166,10 @@ void SDC_advance(MultiFab& phi_old,
 		  sdc_m+1,-1,current_time,epsilon, k_freq, Nprob,Lord);
 	
 	} // end SDC substep loop
-      
-        
+
+      //  Compute the residual
+      SDC.SDC_comp_residual(dt);
+      amrex::Print() << "+++++++End SDC sweep " << k << ", SDC residual=  " << SDC.max_residual << "\n\n";
     }  // end sweeps loop
     ///////////////////////////////////////////////////////
     // PAUSE

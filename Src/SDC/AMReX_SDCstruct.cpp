@@ -31,10 +31,11 @@ SDCstruct::SDCstruct(int Nnodes_in,int Npieces_in, MultiFab& sol_in)
 
   //  Resize the storage
   sol.resize(Nnodes);
-  res.resize(Nnodes);
+  tmp.resize(Nnodes);
+  residual.resize(Nnodes-1);
   f.resize(Npieces);
   if (Npieces == 3) 
-    Ithree.resize(Nnodes);
+    Ithree.resize(Nnodes-1);
 
   //  Assign  geomety and multifab info
   const BoxArray &ba=sol_in.boxArray();
@@ -43,18 +44,22 @@ SDCstruct::SDCstruct(int Nnodes_in,int Npieces_in, MultiFab& sol_in)
   const int Ncomp=sol_in.nComp();
 
   for (auto& v : f) v.resize(Nnodes);
-  fhigh.resize(Nnodes);
+
   for (int sdc_m = 0; sdc_m < Nnodes; sdc_m++)
     {
       sol[sdc_m].define(ba, dm, Ncomp, Nghost);
-      res[sdc_m].define(ba, dm, Ncomp, Nghost);
-      fhigh[sdc_m].define(ba, dm, Ncomp, Nghost);
+      tmp[sdc_m].define(ba, dm, Ncomp, Nghost);
+      if (sdc_m < Nnodes-1)
+	{
+	  residual[sdc_m].define(ba, dm, Ncomp, Nghost);
+	  if (Npieces == 3)
+	    Ithree[sdc_m].define(ba, dm, Ncomp, Nghost);
+	}
+
       for (int i = 0; i < Npieces; i++)
 	{
 	  f[i][sdc_m].define(ba, dm, Ncomp, Nghost);
 	}
-      if (Npieces == 3)
-	Ithree[sdc_m].define(ba, dm, Ncomp, Nghost);      
     }
   
 }
@@ -67,24 +72,18 @@ void SDCstruct::SDC_rhs_integrals(Real dt)
   // Compute the quadrature terms from last iteration
   for (int sdc_m = 0; sdc_m < Nnodes-1; sdc_m++)
     {
-      for ( MFIter mfi(res[sdc_m]); mfi.isValid(); ++mfi )
+      for ( MFIter mfi(tmp[sdc_m]); mfi.isValid(); ++mfi )
 	{
-	  res[sdc_m][mfi].setVal(0.0);
+	  tmp[sdc_m][mfi].setVal(0.0);
 	  if (Npieces == 3)
 	    Ithree[sdc_m][mfi].setVal(0.0);
 	  for (int sdc_n = 0; sdc_n < Nnodes; sdc_n++)
 	    {
 	      qij = dt*(Qgauss[sdc_m][sdc_n]-Qexp[sdc_m][sdc_n]);	      
-	      res[sdc_m][mfi].saxpy(qij,f[0][sdc_n][mfi]);  // Explicit part
+	      tmp[sdc_m][mfi].saxpy(qij,f[0][sdc_n][mfi]);  // Explicit part
             
           qij = dt*(Qgauss[sdc_m][sdc_n]-Qimp[sdc_m][sdc_n]);
-          res[sdc_m][mfi].saxpy(qij,f[1][sdc_n][mfi]);
-            /* If you do the mistaken scheme:
-	      qij = dt*Qgauss[sdc_m][sdc_n];
-	      res[sdc_m][mfi].saxpy(qij,fhigh[sdc_n][mfi]);
-          qij = -dt*Qimp[sdc_m][sdc_n];
-          res[sdc_m][mfi].saxpy(qij,f[1][sdc_n][mfi]);
-             */
+          tmp[sdc_m][mfi].saxpy(qij,f[1][sdc_n][mfi]);
         
 	    }
 	  if (Npieces == 3)
@@ -92,7 +91,7 @@ void SDCstruct::SDC_rhs_integrals(Real dt)
 	      for (int sdc_n = 0; sdc_n < Nnodes; sdc_n++)
 		{ //  // MISDC pieces
 		  qij = dt*(Qgauss[sdc_m][sdc_n]);  // leave off -dt*Qtil and add it later		  
-		  res[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
+		  tmp[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
 		  // Compute seperate integral for f_3 piece		  
 		  qij = -dt*(Qimp[sdc_m][sdc_n]);  
 		  Ithree[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
@@ -101,42 +100,37 @@ void SDCstruct::SDC_rhs_integrals(Real dt)
 	}
     }
 }
-
-void SDCstruct::SDC_rhs_integrals_high(Real dt)
+void SDCstruct::SDC_comp_residual(Real dt)
 {
-    
-    Real qij;
-    
-    // Compute the quadrature terms from last iteration
-    for (int sdc_m = 0; sdc_m < Nnodes-1; sdc_m++)
+  // Compute the Residual at all nodes
+
+  Real qij;
+  max_residual=0.0;
+  for (int sdc_m = 0; sdc_m < Nnodes-1; sdc_m++)
     {
-        for ( MFIter mfi(res[sdc_m]); mfi.isValid(); ++mfi )
-        {
-            res[sdc_m][mfi].setVal(0.0);
-            if (Npieces == 3)
-            Ithree[sdc_m][mfi].setVal(0.0);
-            for (int sdc_n = 0; sdc_n < Nnodes; sdc_n++)
-            {
-                qij = dt*(Qgauss[sdc_m][sdc_n]-Qexp[sdc_m][sdc_n]);
-                res[sdc_m][mfi].saxpy(qij,f[0][sdc_n][mfi]);  // Explicit part
-                
-                qij = dt*(Qgauss[sdc_m][sdc_n]-Qimp[sdc_m][sdc_n]);
-                res[sdc_m][mfi].saxpy(qij,f[1][sdc_n][mfi]);  // Implicit part, for new scheme should have 4th order term for Qgauss and 2nd for Qimp
-            }
-            if (Npieces == 3)
-            {
-                for (int sdc_n = 0; sdc_n < Nnodes; sdc_n++)
-                { //  // MISDC pieces
-                    qij = dt*(Qgauss[sdc_m][sdc_n]);  // leave off -dt*Qtil and add it later
-                    res[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
-                    // Compute seperate integral for f_3 piece
-                    qij = -dt*(Qimp[sdc_m][sdc_n]);
-                    Ithree[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
-                }
-            }
-        }
+      for ( MFIter mfi(residual[sdc_m]); mfi.isValid(); ++mfi )
+	{
+	  residual[sdc_m][mfi].setVal(0.0);
+	  //  First compute the spectral integral
+	  for (int sdc_n = 0; sdc_n < Nnodes; sdc_n++)
+	    {
+	      qij = dt*Qgauss[sdc_m][sdc_n];
+	      residual[sdc_m][mfi].saxpy(qij,f[0][sdc_n][mfi]);  
+	      residual[sdc_m][mfi].saxpy(qij,f[1][sdc_n][mfi]);
+	      if (Npieces == 3)
+		{
+		  residual[sdc_m][mfi].saxpy(qij,f[2][sdc_n][mfi]);
+		}
+	    }
+	  //  Now subtract off the soluion and add initial conditiion
+	  residual[sdc_m][mfi].saxpy(-1.0,sol[sdc_m+1][mfi]);	  
+	  residual[sdc_m][mfi].saxpy(1.0,sol[0][mfi]);
+
+	}
+      max_residual=max(max_residual,residual[sdc_m].norm0());
     }
 }
+
 
 void SDCstruct::SDC_rhs_k_plus_one(MultiFab& sol_new, Real dt,int sdc_m)
 {
@@ -145,9 +139,10 @@ void SDCstruct::SDC_rhs_k_plus_one(MultiFab& sol_new, Real dt,int sdc_m)
   
  //  Copy first the initial value
   MultiFab::Copy(sol_new,sol[0], 0, 0, 1, 0);
+ //  Now add the Qtilde matrices times function values at iteration k+1 up to sdc_m
   for ( MFIter mfi(sol_new); mfi.isValid(); ++mfi )
     {
-      sol_new[mfi].saxpy(1.0,res[sdc_m][mfi]);
+      sol_new[mfi].saxpy(1.0,tmp[sdc_m][mfi]);
       for (int sdc_n = 0; sdc_n < sdc_m+1; sdc_n++)
 	{
 	  qij = dt*Qexp[sdc_m][sdc_n];

@@ -39,7 +39,7 @@ void init_beta(const int* lo, const int* hi,
            amrex_real* facey, const int* faceylo, const int* faceyhi,
            amrex_real* prodx, const int* prodxlo, const int* prodxhi,
            amrex_real* prody, const int* prodylo, const int* prodyhi,
-		   int *n, const amrex_real* time, amrex_real* epsilon,amrex_real* k_freq, const int* Nprob, int* Lord);
+		   int *n, const amrex_real* time, amrex_real* epsilon, amrex_real* k_freq, const int* Nprob, int* Lord);
   void SDC_fcomp_reaction_F(const int* lo, const int* hi,
                       const int* domlo, const int* domhi,
                       amrex_real* phi, const int* philo, const int* phihi,
