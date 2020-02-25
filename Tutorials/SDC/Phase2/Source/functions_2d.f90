@@ -1,7 +1,7 @@
 
 subroutine SDC_feval_F(lo, hi, domlo, domhi, phi, philo, phihi, &
                          fluxx, fxlo, fxhi, fluxy, fylo, fyhi,f, flo,fhi, &
-                         dx,a,d,r,facex, facexlo, facexhi,facey, faceylo, faceyhi,prodx, prodxlo, prodxhi,prody, prodylo, prodyhi,n,time, epsilon, k_freq, kappa, Nprob,Lord) bind(C, name="SDC_feval_F")
+                         dx,a,d,r,facex, facexlo, facexhi,facey, faceylo, faceyhi,prodx, prodxlo, prodxhi,prody, prodylo, prodyhi,n,time, epsilon, k_freq,  Nprob,Lord) bind(C, name="SDC_feval_F")
  ! facex, facexlo, facexhi,facey, faceylo, faceyhi
   !  Compute the rhs terms
 ! Assumes you have 2 ghost cells for flux that way you can do product rule
@@ -16,7 +16,7 @@ subroutine SDC_feval_F(lo, hi, domlo, domhi, phi, philo, phihi, &
   real(amrex_real), intent(inout) :: fluxy( fylo(1): fyhi(1), fylo(2): fyhi(2))
   real(amrex_real), intent(inout) :: f   (flo(1):fhi(1),flo(2):fhi(2))
   real(amrex_real), intent(in)    :: dx(2)
-  real(amrex_real), intent(in)    :: a,d,r,time, epsilon, k_freq, kappa
+  real(amrex_real), intent(in)    :: a,d,r,time, epsilon, k_freq
   integer, intent(in) :: n, Nprob,Lord ! n is Npiece
  integer facexlo(2), facexhi(2)
 real(amrex_real), intent(in) :: facex( facexlo(1): facexhi(1), facexlo(2): facexhi(2))
@@ -27,7 +27,7 @@ real(amrex_real), intent(inout) :: prodx( prodxlo(1): prodxhi(1), prodxlo(2): pr
 integer prodylo(2), prodyhi(2)
 real(amrex_real), intent(inout) :: prody( prodylo(1): prodyhi(1), prodylo(2): prodyhi(2))
 integer          :: i,j, i_quad, j_quad
-double precision :: x,y,pi, x_quad, y_quad,kx,ky
+double precision :: x,y,pi, x_quad, y_quad,kx,ky,om,kappa
 real(amrex_real) :: phi_one, face_one
 
 double precision :: gauss_nodeFrac(0:2)
@@ -36,6 +36,9 @@ gauss_nodeFrac = (/ (1.d0-(3.d0/5.d0)**(0.5d0))/2.d0,0.5d0,(1.d0+(3.d0/5.d0)**(0
 gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
 
 pi=3.14159265358979323846d0
+
+om=k_freq*pi
+kappa=2*d*om*om  !  decay coefficient
 
   select case(n)
      case (0)  !  Explicit term (here it is advection)
@@ -66,27 +69,27 @@ pi=3.14159265358979323846d0
                 do j_quad = 0,2
                     y_quad = y + dx(2)*gauss_nodeFrac(j_quad)
                     !print*, y_quad
-                    ky=k_freq*y_quad
+                    ky=om*y_quad
                 do i_quad = 0,2
                    x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
-                   kx=k_freq*x_quad
+                   kx=om*x_quad
                     if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                         f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
                             -kappa*exp(-kappa*time)*sin(kx)*sin(ky) &
-                            -d*k_freq*( &
-                                -2.d0*k_freq*exp(-kappa*time)*sin(kx)*sin(ky) &
-                                + epsilon*k_freq*exp(-kappa*time)*((sin(ky)**2)*(cos(kx)**2) + (cos(ky)**2)*(sin(kx)**2)) &
-                                -2.d0*epsilon*k_freq*exp(-kappa*time)*(sin(kx)**2)*(sin(ky)**2) &
+                            -d*om*( &
+                                -2.d0*om*exp(-kappa*time)*sin(kx)*sin(ky) &
+                                + epsilon*om*exp(-kappa*time)*((sin(ky)**2)*(cos(kx)**2) + (cos(ky)**2)*(sin(kx)**2)) &
+                                -2.d0*epsilon*om*exp(-kappa*time)*(sin(kx)**2)*(sin(ky)**2) &
                             )&
                             )
                     elseif (Nprob .EQ. 3) then
                         f(i,j) = f(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
                             (&
-                            epsilon*4.d0*d*(k_freq**2)*exp(-kappa*time)* &
-                            cos(k_freq*(x_quad+y_quad))*sin(k_freq*(x_quad+y_quad)) + &
-                            (-kappa)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) + &
-                            2*d*(k_freq**2.d0)*exp(-kappa*time)*cos(k_freq*(x_quad+y_quad)) &
+                            epsilon*4.d0*d*(om**2)*exp(-kappa*time)* &
+                            cos(om*(x_quad+y_quad))*sin(om*(x_quad+y_quad)) + &
+                            (-kappa)*exp(-kappa*time)*cos(om*(x_quad+y_quad)) + &
+                            2*d*(om**2.d0)*exp(-kappa*time)*cos(om*(x_quad+y_quad)) &
                             )
                     endif
 
@@ -335,7 +338,7 @@ end subroutine cc_to_face_loc
 
 
 
-subroutine fill_bdry_values(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,time, epsilon, k_freq, kappa, Nprob)bind(C, name="fill_bdry_values")
+subroutine fill_bdry_values(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,time, epsilon, k_freq, Nprob)bind(C, name="fill_bdry_values")
 !  Initialize the scalar field phi
 use amrex_fort_module, only : amrex_real
 
@@ -346,7 +349,7 @@ real(amrex_real), intent(inout) :: phi(philo(1):phihi(1),philo(2):phihi(2))
 real(amrex_real), intent(in   ) :: dx(2)
 real(amrex_real), intent(in   ) :: prob_lo(2)
 real(amrex_real), intent(in   ) :: prob_hi(2)
-real(amrex_real), intent(in   ) :: k_freq, time, kappa, epsilon
+real(amrex_real), intent(in   ) :: k_freq, time, epsilon
 integer          :: i,j, i_quad, j_quad, face_index
 double precision :: x,y,tupi,t0,d, pi, x_quad, y_quad
 double precision :: gauss_nodeFrac(0:2)

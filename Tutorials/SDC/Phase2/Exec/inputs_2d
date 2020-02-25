@@ -1,17 +1,22 @@
 # Time step is set to Tfin/nsteps 16
 Nsteps = 16
-Tfin = 0.5
+Tfin = 0.25
+
+#  Multigrid stuff
+Lord=244
+maxVcycle=15
+linop.opOrder=244
 
 # plot_int to 1 to make plot files
 plot_int = 1
 #  Spatial size 
-n_cell = 256
-max_grid_size = 512
+n_cell = 128
+max_grid_size = 64
 
 #  Define SDC parameters
-Nnodes=3
+Nnodes=5
 Npieces=2
-Nsweeps=1
+Nsweeps=8
 Nprob=4
 #  Define the advection, diffusion, and reaction parameters
 a=0.0

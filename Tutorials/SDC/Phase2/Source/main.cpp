@@ -69,7 +69,9 @@ void main_main ()
     pp.query("Lord",Lord);
     
     // Manufactured solution parameters
-    Real k_freq =3.14159265358979323846;
+    Real k_freq =1.0;
+    pp.query("k_freq",k_freq);    
+
     Real epsilon = 0.5;//0.25;//0.25;
     Real kappa = 2.0*d*pow(k_freq,2.0); // This choice leads to cancellation analytically. Doesn't matter now.
     
@@ -223,7 +225,7 @@ void main_main ()
 		const Box& bx = mfi.validbox();
 		err_phi(BL_TO_FORTRAN_BOX(bx),
 			BL_TO_FORTRAN_ANYD(phi_new[mfi]),
-			geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa, &Nprob);
+			geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &Nprob);
 	      }
 	  }
 	amrex::Print() << "max error in phi " << phi_new.norm0() << "\n";
@@ -350,7 +352,7 @@ mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
     {          const Box& bx = mfi.validbox();
         fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
                          BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa,&Nprob);
+                         geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &Nprob);
     }
 /*    for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
     {          const Box& bx = mfi.validbox();
@@ -539,7 +541,7 @@ mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
       //amrex::Print() << "time" << time << "\n";
       // Do an SDC step
       
-      SDC_advance(phi_old, phi_new,flux, dt, geom, bc, mlmg,mlabec,SDCmats,a,d,r ,face_bcoef, prod_stor,time, epsilon, k_freq, kappa, bdry_values, Nprob,Lord,totV);
+      SDC_advance(phi_old, phi_new,flux, dt, geom, bc, mlmg,mlabec,SDCmats,a,d,r ,face_bcoef, prod_stor,time, epsilon, k_freq, bdry_values, Nprob,Lord,totV);
        
       
       MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 2);    
@@ -552,7 +554,7 @@ mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
                     const Box& bx = mfi.validbox();
                     err_phi(BL_TO_FORTRAN_BOX(bx),
                         BL_TO_FORTRAN_ANYD(phi_new[mfi]),
-                        geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &kappa, &Nprob);
+                        geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&a,&d,&r,&time, &epsilon,&k_freq, &Nprob);
                   }
             
                     // Tell the I/O Processor to write out which step we're doing
@@ -573,8 +575,6 @@ mlabec.setBCoeffs(0, amrex::GetArrOfConstPtrs(face_bcoef));
     const int IOProc = ParallelDescriptor::IOProcessorNumber();
     ParallelDescriptor::ReduceRealMax(stop_time,IOProc);
 
-    // Tell the I/O Processor to write out the "run time"
-    amrex::Print() << "Run time = " << stop_time << std::endl;
-    amrex::Print() << "total V cycles = " << Nsteps << "  [ " << totV <<", "<< phi_new.norm0() <<"],\n";
+    amrex::Print() << "Nsteps, total V cycles, error, runtime =  [ " << Nsteps << " , " << totV <<", "<< phi_new.norm0() << ", " << stop_time <<"],\n";
 
 }

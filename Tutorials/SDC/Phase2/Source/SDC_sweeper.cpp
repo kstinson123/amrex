@@ -18,7 +18,7 @@ void SDC_advance(MultiFab& phi_old,
 		 MLABecLaplacian& mlabec,
 		 SDCstruct &SDC, Real a, Real d, Real r,
          std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
-		 std::array<MultiFab,AMREX_SPACEDIM>& prod_stor, Real time, Real epsilon, Real k_freq, Real kappa, MultiFab& bdry_values, int Nprob,int Lord,int &totV)
+		 std::array<MultiFab,AMREX_SPACEDIM>& prod_stor, Real time, Real epsilon, Real k_freq, MultiFab& bdry_values, int Nprob,int Lord,int &totV)
 {
 
   /*  This is a multi-implicit SDC example time step for an 
@@ -52,7 +52,7 @@ void SDC_advance(MultiFab& phi_old,
 	{          const Box& bx = mfi.validbox();
 	  fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
 			   BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-			   geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+			   geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &Nprob);
 	}
        
         mlabec.fourthOrderBCFill(SDC.sol[0],bdry_values);
@@ -71,7 +71,7 @@ void SDC_advance(MultiFab& phi_old,
   
   //  Compute the first function value (Need boundary filled here at current time explicit).
   int sdc_m=0;
-  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_m,-1,time, epsilon, k_freq, kappa, Nprob,Lord);
+  SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_m,-1,time, epsilon, k_freq, Nprob,Lord);
 
   // Copy first function value to all nodes
   for (int sdc_n = 1; sdc_n < SDC.Nnodes; sdc_n++)
@@ -81,7 +81,7 @@ void SDC_advance(MultiFab& phi_old,
         current_time = time+dt*SDC.qnodes[sdc_n];
       //MultiFab::Copy(SDC.f[0][sdc_n],SDC.f[0][0], 0, 0, 1, 0);
         // Subsequent Calculation doesn't need BC conditions
-	SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_n,0,current_time, epsilon, k_freq, kappa, Nprob,Lord);
+	SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,sdc_n,0,current_time, epsilon, k_freq, Nprob,Lord);
 
       MultiFab::Copy(SDC.f[1][sdc_n],SDC.f[1][0], 0, 0, 1, 0);
       if (SDC.Npieces==3)
@@ -99,7 +99,7 @@ void SDC_advance(MultiFab& phi_old,
       //  Substep over SDC nodes
       for (int sdc_m = 0; sdc_m < SDC.Nnodes-1; sdc_m++)
 	{
-	  amrex::Print() << "sweep " << k << ", substep " << sdc_m+1 <<"---";
+	  amrex::Print() << "---Sweep " << k << ", Substep " << sdc_m+1 <<"---";
         
 	  // use phi_new as rhs and fill it with terms at this iteration
 	  SDC.SDC_rhs_k_plus_one(phi_new,dt,sdc_m);
@@ -122,7 +122,7 @@ void SDC_advance(MultiFab& phi_old,
             {          const Box& bx = mfi.validbox();
                 fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
                                  BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+                                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &Nprob);
             }
             mlabec.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
         }
@@ -132,7 +132,7 @@ void SDC_advance(MultiFab& phi_old,
         
         
 	// Solve for the first implicit part
-	SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt,a,d,r,face_bcoef,prod_stor,sdc_m+1,1, current_time, epsilon, k_freq, kappa, totV, Nprob,Lord);
+	SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt,a,d,r,face_bcoef,prod_stor,sdc_m+1,1, current_time, epsilon, k_freq, totV, Nprob,Lord);
      
 
 	if (SDC.Npieces==3)
@@ -144,7 +144,7 @@ void SDC_advance(MultiFab& phi_old,
 	    SDC.SDC_rhs_misdc(phi_new,dt,sdc_m);
 	    
 	    // Solve for the second implicit part
-	    SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt, a,d,r,face_bcoef,prod_stor,sdc_m+1,2, current_time, epsilon, k_freq, kappa, totV, Nprob,Lord);
+	    SDC_fcomp(phi_new, flux, geom, bc, SDC, mlmg, mlabec,dt, a,d,r,face_bcoef,prod_stor,sdc_m+1,2, current_time, epsilon, k_freq, totV, Nprob,Lord);
 	  }
 	// Compute the function values at node sdc_m+1
         
@@ -154,7 +154,7 @@ void SDC_advance(MultiFab& phi_old,
             {          const Box& bx = mfi.validbox();
 	      fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
 			       BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-			       geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &kappa, &Nprob);
+			       geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&current_time, &epsilon,&k_freq, &Nprob);
             }
 	  mlabec.fourthOrderBCFill(SDC.sol[sdc_m+1],bdry_values);
         }
@@ -163,7 +163,7 @@ void SDC_advance(MultiFab& phi_old,
 	//  amrex::Print() << "current time" << current_time <<"\n";
 	//  
 	SDC_feval(flux,geom,bc,SDC,a,d,r,face_bcoef,prod_stor,
-		  sdc_m+1,-1,current_time,epsilon, k_freq, kappa, Nprob,Lord);
+		  sdc_m+1,-1,current_time,epsilon, k_freq, Nprob,Lord);
 	
 	} // end SDC substep loop
       
@@ -189,7 +189,7 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
 	       Real a,Real d,Real r,
            std::array<MultiFab, AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab, AMREX_SPACEDIM>& prod_stor,
-	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa, int Nprob,int Lord)
+	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, int Nprob,int Lord)
 {
   /*  Evaluate explicitly the rhs terms of the equation at the SDC node "sdc_m".
       The input parameter "npiece" describes which term to do.  
@@ -234,7 +234,7 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
               BL_TO_FORTRAN_ANYD(face_bcoef[1][mfi]),
               BL_TO_FORTRAN_ANYD(prod_stor[0][mfi]),
               BL_TO_FORTRAN_ANYD(prod_stor[1][mfi]),
-		      &n, &time, &epsilon, &k_freq, &kappa, &Nprob, &Lord);
+		      &n, &time, &epsilon, &k_freq, &Nprob, &Lord);
 	}
       
     }
@@ -249,7 +249,7 @@ void SDC_fcomp(MultiFab& rhs,
 	       Real dt,Real a,Real d,Real r,
            std::array<MultiFab,AMREX_SPACEDIM>& face_bcoef,
            std::array<MultiFab,AMREX_SPACEDIM>& prod_stor,
-	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, Real kappa, int &totV, int Nprob,int Lord)
+	       int sdc_m,int npiece, Real time, Real epsilon, Real k_freq, int &totV, int Nprob,int Lord)
 {
   /*  Solve implicitly for the implicit terms of the equation at the SDC node "sdc_m".
       The input parameter "npiece" describes which term to do.  */
@@ -262,16 +262,16 @@ void SDC_fcomp(MultiFab& rhs,
   const Real* dx = geom.CellSize();
   Real qij;
   Real t;
+  int numV;
     
     // relative and absolute tolerances for linear solve
-  //const Real tol_rel = 1.0e-10;
-  const Real tol_rel = 1.0e-12;
-  //const Real tol_abs = 0;
   const Real tol_abs = 1.0e-12;
+  const Real tol_rel = 1.0e-12;
   const Real tol_res = 1.e-10;    // Tolerance on residual
-  Real resnorm = 1.e10;    // Tolerance on residual
-    Real zeroReal = 0.0;
-    Real corrnorm;
+  Real resnorm = 1.e10;    // Norm of residual
+  
+  Real zeroReal = 0.0;
+  Real corrnorm;
   // Make some space for iteration stuff
   MultiFab corr(ba, dm, 1, 2);
   MultiFab resid(ba, dm, 1, 2);
@@ -299,7 +299,7 @@ void SDC_fcomp(MultiFab& rhs,
         {          const Box& bx = mfi.validbox();
             fill_bdry_values(BL_TO_FORTRAN_BOX(bx),
                              BL_TO_FORTRAN_ANYD(bdry_values[mfi]),
-                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &kappa, &Nprob);
+                             geom.CellSize(), geom.ProbLo(), geom.ProbHi(),&time, &epsilon,&k_freq, &Nprob);
         }
         mlabec.fourthOrderBCFill(SDC.sol[sdc_m],bdry_values);
     }
@@ -323,8 +323,8 @@ void SDC_fcomp(MultiFab& rhs,
         int numGS=10;     //  Set number of GS iterations (out dated)
         pp.query("numGS",numGS);
 
-	int numVcycle=3;  // Set number of Vcycles per residual solve
-        pp.query("numVcycle",numVcycle);
+	int maxVcycle=3;  // Set number of Vcycles per residual solve
+        pp.query("maxVcycle",maxVcycle);
         
         while ((resnorm > tol_res) & (resk <=maxresk))  //  Loop over residual solves
 	  {
@@ -347,7 +347,7 @@ void SDC_fcomp(MultiFab& rhs,
                             BL_TO_FORTRAN_ANYD(face_bcoef[1][mfi]),
                             BL_TO_FORTRAN_ANYD(prod_stor[0][mfi]),
                             BL_TO_FORTRAN_ANYD(prod_stor[1][mfi]),
-                            &npiece, &zeroReal, &zeroReal, &zeroReal, &zeroReal, &Nprob,&Lord);
+                            &npiece, &zeroReal, &zeroReal, &zeroReal, &Nprob,&Lord);
                 
             }
             //Rescale eval_storage to make resid.
@@ -363,33 +363,22 @@ void SDC_fcomp(MultiFab& rhs,
 
 	    if(resnorm <= tol_res){
 	      amrex::Print() << "Reached tolerance: resk iter " << resk << ",  residual norm " << resnorm << "\n";
+	      amrex::Print() <<  "\n";
 	      break;
             }
-	    amrex::Print() << "iter " << resk << ",  residual norm " << resnorm << "\n";
             
 
 	    mlabec.setLevelBC(0,&temp_zero); 
             corr.setVal(0.0);
 
 	    //  Do the multigrid solve for residual
-	    mlmg.setFixedIter(numVcycle);                
-	    mlmg.setVerbose(1);                
+	    mlmg.setFixedIter(maxVcycle);                
+	    mlmg.setVerbose(0);                
 	    mlabec.prepareForSolve();
 	    mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);
-	    totV=totV+numVcycle;
-            /////////////////////////////////////////////////////////////////
-            // SMOOTHER
-            /////////////////////////////////////////////////////////////////
-	    /*            for(int g = 1; g<=numGS;g++){
-	      if (Nprob<3){mlabec.fourthOrderBCFill(corr,temp_zero); }
-	      corr.FillBoundary(geom.periodicity());
-            
-	     mlmg.setFixedIter(3);                
-	     mlabec.prepareForSolve();
-	     mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);	     
-	     //mlabec.Fsmooth(0, 0, corr , resid, 0);
-            }
-            */
+	    numV=mlmg.getNumIters();  //  Actual number of Vcycles taken
+	    totV=totV+numV;
+	    amrex::Print() << "Resk iter " << resk << ",  res norm=" << resnorm <<  "  MG Vcycles=" << numV <<  "\n";
 
 	    //  Add correction to solution
 	    MultiFab::Saxpy(SDC.sol[sdc_m],1.0,corr,0,0,1,0);

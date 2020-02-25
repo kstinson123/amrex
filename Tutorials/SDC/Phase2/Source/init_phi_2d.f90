@@ -11,7 +11,7 @@ subroutine init_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi, k_freq, Npr
   real(amrex_real), intent(in   ) :: prob_hi(2) 
   real(amrex_real), intent(in   ) :: k_freq
   integer          :: i,j, i_quad, j_quad
-  double precision :: x,y,tupi,t0,d, pi, x_quad, y_quad
+  double precision :: x,y,tupi,t0,d, pi, x_quad, y_quad,om
 double precision :: gauss_nodeFrac(0:2)
 double precision :: gauss_weights(0:2)
 gauss_nodeFrac = (/ (1.d0-(3.d0/5.d0)**(0.5d0))/2.d0,0.5d0,(1.d0+(3.d0/5.d0)**(0.5d0))/2.d0 /)
@@ -20,6 +20,7 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
   pi=3.14159265358979323846d0
 
 
+om=k_freq*pi
 !print*, prob_lo, prob_hi, philo,phihi
   do j = lo(2), hi(2)
      !y = prob_lo(2) + (dble(j)+1.d0/2.d0 )* dx(2)
@@ -38,10 +39,10 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
         x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
         if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
             phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                        sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+                        sin(om*(x_quad))*sin(om*(y_quad))
         elseif (Nprob .EQ. 3) then
             phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                cos(k_freq*(x_quad+y_quad))
+                cos(om*(x_quad+y_quad))
         endif
 
 
@@ -71,13 +72,14 @@ real(amrex_real), intent(in   ) :: prob_hi(2)
 real(amrex_real), intent(in   ) :: epsilon, k_freq
 
 integer          :: i,j, i_quad, j_quad
-double precision :: x,y,pi, x_quad, y_quad
+double precision :: x,y,pi, x_quad, y_quad,om
 double precision :: gauss_nodeFrac(0:4)
 double precision :: gauss_weights(0:4)
 !gauss_nodeFrac = (/ (1.d0-(3.d0/5.d0)**(0.5d0))/2.d0,0.5d0,(1.d0+(3.d0/5.d0)**(0.5d0))/2.d0 /)
 !gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
 pi=3.14159265358979323846d0
 
+ om=k_freq*pi
 ! Even higher order initialization!
 gauss_nodeFrac = (/ (1.d0 - ((1.d0/3.d0)*dsqrt(5.d0+2.d0*dsqrt(10.d0/7.d0))))/2.d0, &
                     (1.d0 - ((1.d0/3.d0)*dsqrt(5.d0-2.d0*dsqrt(10.d0/7.d0))))/2.d0, &
@@ -100,7 +102,7 @@ y = prob_lo(2) + dble(j) * dx(2)
     do i = philo(1), phihi(1)
     !x = prob_lo(1) + (dble(i)+(1.d0/2.d0)) * dx(1)
     x = prob_lo(1) + dble(i) * dx(1)
-    !phi(i,j)=1.d0+epsilon*sin(k_freq*(x+y))
+    !phi(i,j)=1.d0+epsilon*sin(om*(x+y))
     phi(i,j) = 0.d0
         do j_quad = 0,4
         y_quad = y + dx(2)*gauss_nodeFrac(j_quad)
@@ -109,10 +111,10 @@ y = prob_lo(2) + dble(j) * dx(2)
             x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
             if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                 phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                    (1.d0+epsilon*sin(k_freq*(x_quad))*sin(k_freq*(y_quad)))
+                    (1.d0+epsilon*sin(om*(x_quad))*sin(om*(y_quad)))
             elseif (Nprob .EQ. 3) then
                 phi(i,j) = phi(i,j)+ gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                    (1.d0+epsilon*sin(k_freq*(x_quad+y_quad)))
+                    (1.d0+epsilon*sin(om*(x_quad+y_quad)))
             endif
 
             end do
@@ -121,7 +123,7 @@ y = prob_lo(2) + dble(j) * dx(2)
 end do
 end subroutine init_beta
 
-subroutine err_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,a,d,r,time, epsilon, k_freq, kappa, Nprob) bind(C, name="err_phi")
+subroutine err_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,a,d,r,time, epsilon, k_freq, Nprob) bind(C, name="err_phi")
   !  Subtract the exact solution from phi.  This will only work for special initial conditions
   !  We use the exact discretized form for diffusion and reaction, and exact translation for advection
   use amrex_fort_module, only : amrex_real
@@ -135,10 +137,10 @@ subroutine err_phi(lo, hi, phi, philo, phihi, dx, prob_lo, prob_hi,a,d,r,time, e
   real(amrex_real), intent(in   ) :: prob_hi(2) 
   real(amrex_real), intent(in   ) :: a,d,r
   real(amrex_real), intent(in   ) :: time
-real(amrex_real), intent(in   ) :: epsilon, k_freq, kappa
+real(amrex_real), intent(in   ) :: epsilon, k_freq
 
   integer          :: i,j,kx,ky,nbox, i_quad, j_quad
-  double precision :: x,y,sym,tupi, maxphi,xx,yy,t0,pi,x_quad,y_quad
+  double precision :: x,y,sym,tupi, maxphi,xx,yy,t0,pi,x_quad,y_quad,om, kappa
 double precision :: gauss_nodeFrac(0:2)
 double precision :: gauss_weights(0:2)
 gauss_nodeFrac = (/ (1.d0-(3.d0/5.d0)**(0.5d0))/2.d0,0.5d0,(1.d0+(3.d0/5.d0)**(0.5d0))/2.d0 /)
@@ -149,6 +151,8 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
   tupi=3.14159265358979323846d0*2d0
   pi=3.14159265358979323846d0
  
+  om=k_freq*pi   ! Frequency in exact solution
+  kappa=2*d*om*om  !  decay coefficient
 
   do j = philo(2), phihi(2)
     !y = prob_lo(2) + (dble(j)+1.d0/2.d0) * dx(2) !+a*time
@@ -175,10 +179,10 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
                 x_quad = x + dx(1)*gauss_nodeFrac(i_quad)
                 if ((Nprob .EQ. 1) .OR. (Nprob .EQ. 4)) then
                     phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                        exp(-kappa*time)*sin(k_freq*(x_quad))*sin(k_freq*(y_quad))
+                        exp(-kappa*time)*sin(om*(x_quad))*sin(om*(y_quad))
                 elseif (Nprob .EQ. 3) then
                     phi(i,j) = phi(i,j)- gauss_weights(j_quad)*gauss_weights(i_quad)* &
-                        exp(-kappa*time)*cos(k_freq*(x_quad+y_quad))
+                        exp(-kappa*time)*cos(om*(x_quad+y_quad))
                 endif
 
                 end do
@@ -190,7 +194,7 @@ gauss_weights = (/ (5.d0/18.d0),(8.d0/18.d0),(5.d0/18.d0)/)
         
      end do
   end do
-  
+
 end subroutine err_phi
 
 subroutine print_multifab(phi, philo, phihi) bind(C, name="print_multifab")
