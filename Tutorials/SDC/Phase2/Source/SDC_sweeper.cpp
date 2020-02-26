@@ -375,7 +375,7 @@ void SDC_fcomp(MultiFab& rhs,
 
 	    //  Do the multigrid solve for residual
 	    mlmg.setFixedIter(maxVcycle);                
-	    mlmg.setVerbose(0);                
+	    mlmg.setVerbose(5);
 	    mlabec.prepareForSolve();
 	    mlmg.solve({&corr}, {&resid}, tol_rel, tol_abs);
 	    numV=mlmg.getNumIters();  //  Actual number of Vcycles taken

@@ -118,7 +118,11 @@ void MLLinOp::Finalize ()
 #endif
 }
 
-MLLinOp::MLLinOp () {}
+MLLinOp::MLLinOp (int a_opOrder)
+    : m_opOrder(a_opOrder)
+{
+    AMREX_ALWAYS_ASSERT(m_opOrder==222 || m_opOrder==244);
+}
 
 MLLinOp::~MLLinOp () {}
 
@@ -157,7 +161,7 @@ MLLinOp::define (const Vector<Geometry>& a_geom,
                                                  f->maxCoarseningLevel());
         }
     }
-#endif
+#endif    
     defineGrids(a_geom, a_grids, a_dmap, a_factory);
     defineAuxData();
     defineBC();

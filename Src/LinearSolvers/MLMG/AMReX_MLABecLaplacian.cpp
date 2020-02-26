@@ -11,8 +11,10 @@ namespace amrex {
 MLABecLaplacian::MLABecLaplacian (const Vector<Geometry>& a_geom,
                                   const Vector<BoxArray>& a_grids,
                                   const Vector<DistributionMapping>& a_dmap,
+                                  int a_opOrder,
                                   const LPInfo& a_info,
                                   const Vector<FabFactory<FArrayBox> const*>& a_factory)
+    : MLCellABecLap(a_opOrder)
 {
   define(a_geom, a_grids, a_dmap,  a_info, a_factory);
 }
@@ -447,7 +449,7 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
 // HIGH ORDER SMOOTHER
     void
     MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs, int redblack) const
-    {
+    {            
         BL_PROFILE("MLABecLaplacian::Fsmooth()");
         // We do this a not great way. We make new multifabs with ghost cells and use periodic to fill ghost cells.
     // Shouldn't need these, as flux has already been calculated
@@ -503,6 +505,7 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
         const Real alpha = m_a_scalar;
         
         MFItInfo mfi_info;
+
         // if (Gpu::notInLaunchRegion()) mfi_info.EnableTiling().SetDynamic(true);
     // mf phi_temp
 #ifdef _OPENMP
@@ -547,32 +550,43 @@ MLABecLaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& 
                          const auto& bzfab = bzcoef.array(mfi););
             
 
-            phi_tmp.resize(grow(tbx,2),nc);
-            phi_tmp.copy(sol[mfi]);
+            if (m_opOrder == 244)
+            {
+                phi_tmp.resize(grow(tbx,2),nc);
+                phi_tmp.copy(sol[mfi]);
+            }
             const auto& phi_tmpfab = phi_tmp.array();
             // Fix for GPU later...
    
 #if (AMREX_SPACEDIM == 2)
             AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
              {
-                 
-                 if(m_opOrder == 222){
+                 if(m_opOrder == 222)
+                 {
                    abec_gsrb(thread_box, solnfab, rhsfab, alpha, afab, dhx, dhy,
                              bxfab, byfab,
                              m0, m2, m1, m3,
                              f0fab, f2fab, f1fab, f3fab,
                              vbx, redblack, nc);
                  }
-                 else if (m_opOrder == 244){
+                 else if (m_opOrder == 244)
+                 {
                      abec_gsrb_high(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
                                afab, bxfab, byfab,
                                m0, m1, m2, m3,
                                vbx, nc, phi_tmpfab, m_relaxation_parameter);
                  }
-             });
-#endif
-            
+                 else
+                 {
 
+                     Print() << "mg ord: " << opOrder() << std::endl;
+                     Print() << "mg ord: " << m_opOrder << std::endl;
+                     Abort("Invalid m_opOrder");
+                 }
+             });
+#else
+            Abort("Not ready for 3D yet");
+#endif
         }
       }
     }

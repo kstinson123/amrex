@@ -7,7 +7,8 @@
 
 namespace amrex {
 
-MLCellLinOp::MLCellLinOp ()
+MLCellLinOp::MLCellLinOp (int a_opOrder)
+    : MLLinOp(a_opOrder)
 {
     m_ixtype = IntVect::TheCellVector();
 }
@@ -21,11 +22,6 @@ MLCellLinOp::define (const Vector<Geometry>& a_geom,
                      const LPInfo& a_info,
                      const Vector<FabFactory<FArrayBox> const*>& a_factory)
 {
-    m_opOrder = 222;
-    ParmParse pp("linop");
-    pp.query("opOrder",m_opOrder);
-    AMREX_ALWAYS_ASSERT(m_opOrder==222 || m_opOrder==244);
-    
     MLLinOp::define(a_geom, a_grids, a_dmap, a_info, a_factory);
     defineAuxData();
     defineBC();
@@ -52,7 +48,8 @@ MLCellLinOp::defineAuxData ()
                                               1, 0, 0, ncomp);
         }
     }
-    
+
+    int op_order = opOrder();
     for (int amrlev = 0; amrlev < m_num_amr_levels; ++amrlev)
     {
         m_maskvals[amrlev].resize(m_num_mg_levels[amrlev]);
@@ -62,8 +59,8 @@ MLCellLinOp::defineAuxData ()
             {
                 const Orientation face = oitr();
                 
-                const int ngrow = (m_opOrder==222) ? 1 : 2; // 1 or 2 Need Lord
-                const int extent = (isCrossStencil() || (m_opOrder==244)) ? 0 : 1; // extend to corners
+                const int ngrow = (op_order==222) ? 1 : 2; // 1 or 2 Need Lord
+                const int extent = (isCrossStencil() || (op_order==244)) ? 0 : 1; // extend to corners
                 m_maskvals[amrlev][mglev][face].define(m_grids[amrlev][mglev],
                                                        m_dmap[amrlev][mglev],
                                                        m_geom[amrlev][mglev],
@@ -349,7 +346,7 @@ MLCellLinOp::smooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs,
 {
     BL_PROFILE("MLCellLinOp::smooth()");
 
-    if (m_opOrder == 222)
+    if (opOrder() == 222)
     {
         for (int redblack = 0; redblack < 2; ++redblack)
         {
@@ -475,7 +472,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
     BL_ASSERT(bndry != nullptr || bc_mode == BCMode::Homogeneous);
 
     const int ncomp = getNComp();
-    const int cross = (isCrossStencil() || (m_opOrder==244));
+    const int cross = (isCrossStencil() || (opOrder()==244));
     const int tensorop = isTensorOp();
     if (!skip_fillboundary) {
         in.FillBoundary(0, ncomp, m_geom[amrlev][mglev].periodicity(),cross);
@@ -500,6 +497,8 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
 
     MFItInfo mfi_info;
     if (Gpu::notInLaunchRegion()) mfi_info.SetDynamic(true);
+
+    int op_order = opOrder();
 
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(cross || tensorop || Gpu::notInLaunchRegion(),
                                      "non-cross stencil not support for gpu");
@@ -596,10 +595,10 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                        BL_TO_FORTRAN_ANYD(m),
                                        cdr, bct, bcl,
                                        BL_TO_FORTRAN_ANYD(fsfab),
-                                       maxorder, dxinv, flagbc, ncomp, cross, m_opOrder);
+                                       maxorder, dxinv, flagbc, ncomp, cross, op_order);
             }
           
-            if(m_opOrder==244){
+            if(op_order==244){
                 for (OrientationIter oitr; oitr; ++oitr)
                 {
                     const Orientation ori = oitr();
@@ -618,7 +617,7 @@ MLCellLinOp::applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, State
                                            BL_TO_FORTRAN_ANYD(m),
                                            cdr, bct, bcl,
                                            BL_TO_FORTRAN_ANYD(fsfab),
-                                           maxorder, dxinv, flagbc, ncomp, cross, m_opOrder);
+                                           maxorder, dxinv, flagbc, ncomp, cross, op_order);
                 }
             }
         }

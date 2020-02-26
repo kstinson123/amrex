@@ -13,7 +13,7 @@ public:
     friend class MLMG;
     friend class MLCGSolver;
 
-    MLCellLinOp ();
+    MLCellLinOp (int a_opOrder = 222);
     virtual ~MLCellLinOp ();
 
     MLCellLinOp (const MLCellLinOp&) = delete;
@@ -102,7 +102,6 @@ public:
     virtual void applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, StateMode s_mode,
                           const MLMGBndry* bndry=nullptr, bool skip_fillboundary=false) const;
     
-
     BoxArray makeNGrids (int grid_size) const;
 
     virtual void restriction (int, int, MultiFab& crse, MultiFab& fine) const override;
@@ -155,7 +154,6 @@ protected:
 
     Vector<std::unique_ptr<MLMGBndry> > m_bndry_cor;
     Vector<std::unique_ptr<BndryRegister> > m_crse_cor_br;
-    int m_opOrder;
 
     // In case of agglomeration, coarse MG grids on amr level 0 are
     // not simply coarsened from fine MG grids.  So we need to build

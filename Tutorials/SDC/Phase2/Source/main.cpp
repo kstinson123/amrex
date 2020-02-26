@@ -241,7 +241,8 @@ void main_main ()
   LPInfo info;
   
   // Implicit solve using MLABecLaplacian class
-  MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
+  int MGopOrder = 244;
+  MLABecLaplacian mlabec({geom}, {ba}, {dm}, MGopOrder, info);
   // order of stencil
   int linop_maxorder = 4;
   mlabec.setMaxOrder(linop_maxorder);

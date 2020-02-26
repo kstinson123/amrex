@@ -140,7 +140,7 @@ contains
              do    k = lo(3), hi(3)
                 do j = lo(2), hi(2)
                    if (mask(lo(1)-1,j,k) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                               phi(lo(1)-1,j,k,n) = (-13.d0*phi(lo(1),j,k,n)+ &
                                                     5.d0*phi(lo(1)+1,j,k,n)-phi(lo(1)+2,j,k,n))/3.d0
 
@@ -164,7 +164,7 @@ contains
              do    k = lo(3), hi(3)
                 do j = lo(2), hi(2)
                    if (mask(hi(1)+1,j,k) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                             phi(hi(1)+1,j,k,n) = (-13.d0*phi(hi(1),j,k,n)+ &
                                                 5.d0*phi(hi(1)-1,j,k,n)-phi(hi(1)-2,j,k,n))/3.d0
                             if (inhomogeneous) then
@@ -186,7 +186,7 @@ contains
              do    k = lo(3), hi(3)
                 do i = lo(1), hi(1)
                    if (mask(i,lo(2)-1,k) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                             phi(i,lo(2)-1,k,n) = (-13.d0*phi(i,lo(2),k,n)+ &
                                                 5.d0*phi(i,lo(2)+1,k,n)-phi(i,lo(2)+2,k,n))/3.d0
 
@@ -209,7 +209,7 @@ contains
              do    k = lo(3), hi(3)
                 do i = lo(1), hi(1)
                    if (mask(i,hi(2)+1,k) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                             phi(i,hi(2)+1,k,n) = (-13.d0*phi(i,hi(2),k,n)+ &
                                                 5.d0*phi(i,hi(2)-1,k,n)-phi(i,hi(2)-2,k,n))/3.d0
 
@@ -234,7 +234,7 @@ contains
              do    j = lo(2), hi(2)
                 do i = lo(1), hi(1)
                    if (mask(i,j,lo(3)-1) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                             phi(i,j,lo(3)-1,n) = (-13.d0*phi(i,j,lo(3),n)+ &
                                                 5.d0*phi(i,j,lo(3)+1,n)-phi(i,j,lo(3)+2,n))/3.d0
 
@@ -257,7 +257,7 @@ contains
              do    j = lo(2), hi(2)
                 do i = lo(1), hi(1)
                    if (mask(i,j,hi(3)+1) .gt. 0) then
-                        if (Lord .eq. 444) then
+                        if (Lord .eq. 244) then
                             phi(i,j,hi(3)+1,n) = (-13.d0*phi(i,j,hi(3),n)+ &
                                                 5.d0*phi(i,j,hi(3)-1,n)-phi(i,j,hi(3)-2,n))/3.d0
 
@@ -314,7 +314,7 @@ end do
           if (cdir==xlo_dir .or. cdir==ylo_dir) then
              do k = lo(3), hi(3)
 ! need to make more robust
-                if (Lord .eq. 444) then
+                if (Lord .eq. 244) then
                     phi(lo(1)-1,lo(2)-1,k,n) = 0.5d0*(sum(phi(lo(1):lo(1)+3,lo(2)-1,k,n)*coef_short_lo(0:3))) + &
                                 0.5d0*(sum(phi(lo(1)-1,lo(2):lo(2)+3,k,n)*coef_short_lo(0:3)))
 
@@ -335,7 +335,7 @@ end do
           end if
           if (cdir==xhi_dir .or. cdir==ylo_dir) then
              do k = lo(3), hi(3)
-                if (Lord .eq. 444) then
+                if (Lord .eq. 244) then
                     phi(hi(1)+1,lo(2)-1,k,n) = 0.5d0*(sum(phi(hi(1)-3:hi(1),lo(2)-1,k,n)*coef_short_hi(0:3))) + &
                                 0.5d0*(sum(phi(hi(1)+1,lo(2):lo(2)+3,k,n)*coef_short_lo(0:3)))
 
@@ -356,7 +356,7 @@ end do
           end if
           if (cdir==xlo_dir .or. cdir==yhi_dir) then
              do k = lo(3), hi(3)
-                if (Lord .eq. 444) then
+                if (Lord .eq. 244) then
                     phi(lo(1)-1,hi(2)+1,k,n) = 0.5d0*(sum(phi(lo(1):lo(1)+3,hi(2)+1,k,n)*coef_short_lo(0:3))) + &
                                 0.5d0*(sum(phi(lo(1)-1,hi(2)-3:hi(2),k,n)*coef_short_hi(0:3)))
 
@@ -377,7 +377,7 @@ end do
           end if
           if (cdir==xhi_dir .or. cdir==yhi_dir) then
              do k = lo(3), hi(3)
-                if (Lord .eq. 444) then
+                if (Lord .eq. 244) then
                     phi(hi(1)+1,hi(2)+1,k,n) = 0.5d0*(sum(phi(hi(1)-3:hi(1),hi(2)+1,k,n)*coef_short_hi(0:3))) + &
                                 0.5d0*(sum(phi(hi(1)+1,hi(2)-3:hi(2),k,n)*coef_short_hi(0:3)))
 
