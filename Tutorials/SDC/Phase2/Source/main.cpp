@@ -72,7 +72,7 @@ void main_main ()
     Real k_freq =1.0;
     pp.query("k_freq",k_freq);    
 
-    Real epsilon = 0.5;//0.25;//0.25;
+    Real epsilon = 0.25;//0.25;//0.25;
     Real kappa = 2.0*d*pow(k_freq,2.0); // This choice leads to cancellation analytically. Doesn't matter now.
     
     
