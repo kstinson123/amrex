@@ -60,7 +60,6 @@ void SDC_advance(MultiFab& phi_old,
     // Fill periodic values and interal ghost cells
     SDC.sol[0].FillBoundary(geom.periodicity());
     
-
   /*  for ( MFIter mfi(bdry_values); mfi.isValid(); ++mfi )
     {          const Box& bx = mfi.validbox();
        
@@ -168,8 +167,8 @@ void SDC_advance(MultiFab& phi_old,
 	} // end SDC substep loop
 
       //  Compute the residual
-      SDC.SDC_comp_residual(dt);
-      amrex::Print() << "+++++++End SDC sweep " << k << ", SDC residual=  " << SDC.max_residual << "\n\n";
+      //SDC.SDC_comp_residual(dt);
+      //amrex::Print() << "+++++++End SDC sweep " << k << ", SDC residual=  " << SDC.max_residual << "\n\n";
     }  // end sweeps loop
     ///////////////////////////////////////////////////////
     // PAUSE
@@ -215,8 +214,6 @@ void SDC_feval(std::array<MultiFab, AMREX_SPACEDIM>& flux,
       nhi=npiece+1;
     }
 
-    
-    
   for ( MFIter mfi(SDC.sol[sdc_m]); mfi.isValid(); ++mfi )
     {
       const Box& bx = mfi.validbox();
@@ -267,9 +264,9 @@ void SDC_fcomp(MultiFab& rhs,
   int numV;
     
     // relative and absolute tolerances for linear solve
-  const Real tol_abs = 1.0e-12;
-  const Real tol_rel = 1.0e-12;
-  const Real tol_res = 1.e-10;    // Tolerance on residual
+  const Real tol_abs = 1.0e-13;
+  const Real tol_rel = 1.0e-13;
+  const Real tol_res = 1.e-13;    // Tolerance on residual
   Real resnorm = 1.e10;    // Norm of residual
   
   Real zeroReal = 0.0;
@@ -319,13 +316,13 @@ void SDC_fcomp(MultiFab& rhs,
 
         int resk=0;   //  Initialize residual loop counter
 
-	int maxresk = 50;  //  Set max residual loops
+	int maxresk = 10;  //  Set max residual loops
         pp.query("maxresk",maxresk);
 
         int numGS=10;     //  Set number of GS iterations (out dated)
         pp.query("numGS",numGS);
 
-	int maxVcycle=3;  // Set number of Vcycles per residual solve
+	int maxVcycle=15;  // Set number of Vcycles per residual solve
         pp.query("maxVcycle",maxVcycle);
         
         while ((resnorm > tol_res) & (resk <=maxresk))  //  Loop over residual solves
